@@ -1,0 +1,7 @@
+* General Notes
+Need Scanner class?
+
+
+* Lexeme Class
+** Data
+** Methods

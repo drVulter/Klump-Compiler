@@ -1,0 +1,11 @@
+/*
+This file contains METHODS associated with the Lexeme class.
+Also contains functions related to Scanning
+ */
+
+/* Lexeme Functions ************************ */
+// Get functions
+int Lexeme::getLineNum(void) {
+    return lineNum;
+}
+/* ***************************************** */

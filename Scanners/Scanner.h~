@@ -1,0 +1,18 @@
+/*
+This file contains the definition of the Scanner class.
+ */
+
+// Guards
+#ifndef __SCANNER_H_INCLUDED__
+#define __SCANNER_H_INCLUDED__
+Class Lexeme
+{
+// Public variables here
+private:
+    int lineNum; // Line number
+public:
+    Lexeme(void); // Constructor
+    int getLineNum(void);
+    
+}
+#endif // end the guard
