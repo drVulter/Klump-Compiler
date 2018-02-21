@@ -1,0 +1,10 @@
+dcl 
+  a : int;
+  b : int;
+  c : int;
+
+begin
+  a := 3;
+  b := 5*a - 2;
+  writeln (a);
+end.
