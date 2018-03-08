@@ -5,6 +5,7 @@ dcl
 
 begin
   a := 3;
-  b := 5*a - 2;
+  b := 3 / a;
   writeln (a);
+  writeln (b);
 end.

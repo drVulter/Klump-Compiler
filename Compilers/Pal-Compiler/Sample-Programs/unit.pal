@@ -1,0 +1,6 @@
+dcl
+  a : int;
+
+begin
+  writeln (a);
+end.

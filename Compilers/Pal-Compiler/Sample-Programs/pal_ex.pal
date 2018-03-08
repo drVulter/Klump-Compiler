@@ -4,10 +4,9 @@ dcl
   c : int;
 
 begin
-  a := 3;
+  a := (0 - 3);
   b := 5*a - 2;
-  c := 2;
-  c := 5*a + b*c*a + c - 12/3;
+  c := 2*c;
   writeln (a);
   writeln (b);
   writeln (c);

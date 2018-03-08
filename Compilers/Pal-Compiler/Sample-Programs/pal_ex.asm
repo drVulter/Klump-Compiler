@@ -1,62 +1,49 @@
 global _main
 extern _printf
+
 section .text
 _main:
+;; Emitting a number.
+push 0
+;; Emitting a number.
 push 3
+;; Emitting an addop.
+pop ebx
+pop eax
+sub eax, ebx
+push eax
+;; Emitting an assignment.
 pop eax
 mov [A], eax
+;; Emitting a number.
 push 5
+;; Emitting an identifier.
 push dword [A]
+;; Emitting a mulop.
 pop ebx
 pop eax
 mul ebx
 push eax
+;; Emitting a number.
 push 2
+;; Emitting an addop.
 pop ebx
 pop eax
 sub eax, ebx
 push eax
+;; Emitting an assignment.
 pop eax
 mov [B], eax
+;; Emitting a number.
 push 2
-pop eax
-mov [C], eax
-push 5
-push dword [A]
-pop ebx
-pop eax
-mul ebx
-push eax
-push dword [B]
+;; Emitting an identifier.
 push dword [C]
+;; Emitting a mulop.
 pop ebx
 pop eax
 mul ebx
 push eax
-push dword [A]
-pop ebx
-pop eax
-mul ebx
-push eax
-pop ebx
-pop eax
-add eax, ebx
-push eax
-push dword [C]
-pop ebx
-pop eax
-add eax, ebx
-push eax
-push 12
-push 3
-pop ebx
-pop eax
-div ebx
-push eax
-pop ebx
-pop eax
-sub eax, ebx
-push eax
+;; Emitting an assignment.
 pop eax
 mov [C], eax
 ;; Print statement

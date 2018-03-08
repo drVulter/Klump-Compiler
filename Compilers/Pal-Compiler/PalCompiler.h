@@ -118,7 +118,7 @@ void emitNumber(string num)
 
       push <num>
     */
-    comment("Emitting a number.")
+    comment("Emitting a number.");
     cout << "push " << num << "\n";
 }
 
@@ -144,13 +144,14 @@ void emitMulop(string opCode)
       push eax ; saved for later?
     */
     string op; // assembly operation
-    if (opCode == "*")
-        op = "mul";
-    else
+    comment("Emitting a mulop.");
+    if (opCode == "/") {
         op = "div";
+        cout << "mov edx, 0\n"; // edx will hold remainder
+    } else
+        op = "mul";
 
     // do the assembly, assumes operands already on stack
-    comment("Emitting a mulop.");
     cout << "pop ebx\n";
     cout << "pop eax\n";
     cout << op << " ebx\n";

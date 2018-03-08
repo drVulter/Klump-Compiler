@@ -133,9 +133,11 @@ mulligan: // goto
       skipWhitespace(); // go on to next thing
   } else if (isdigit(look)) {
       // then, deal with numbers
+     
       bool isDecimal = false;
       value = look;
       look = cin.get();
+      
       while (isdigit(look)) {
           // get the rest of the number (integral part if a decimal)
           value += look;
