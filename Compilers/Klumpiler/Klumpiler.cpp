@@ -20,22 +20,66 @@ void const_definitions(void);
 void const_list(void);
 void konst(void); // corresponds to <const> in grammar
 void type_definitions(void);
+void type_list(void);
+void struct_type(void);
+void array_type(void);
+void record_type(void);
+void fld_list(void);
 void dcl_definitions(void);
 void dcl_list(void);
+void dcl_type(void);
+void atomic_type(void);
+void proc_declarations(void);
+void signature_list(void);
+void proc_signature(void);
+void formal_args(void);
+void formal_arg_list(void);
+void formal_arg(void);
+void call_by(void);
+void return_type(void);
+void actual_args(void);
+void actual_arg_list(void);
+void actual_arg(void);
+void procedure_list(void);
 void procedure(void);
+void proc_head(void);
+void proc_body(void);
 void statement_list(void);
 void statement(void);
+void label(void);
+void exec_statement(void);
+void read_statement(void);
 void write_statement(void);
 void assignment_statement(void);
+void call_statement(void);
+void return_statement(void);
+void goto_statement(void);
+void empty_statement(void);
+void compound_statement(void);
+void if_statement(void);
+void else_clause(void);
+void while_statement(void);
+void case_statement(void);
+void case_list(void);
+void for_statement(void);
+void next_statement(void);
+void break_statement(void);
 void expression(void);
-void more_expression(void);
+void comparison(void);
+void simple_expression(void);
+void more_expression(void); // REMOVE THIS
 void term(void);
-void more_term(void);
+void more_term(void); // REMOVE THIS ???
 void factor(void);
-void end_pal(void);
+void compop(void);
+void end_pal(void); // REMOVE THIS
 void addop(void);
 void mulop(void);
-
+void unary(void);
+void lval(void);
+void func_ref(void);
+void qualifier(void);
+// end_klump(void); 
 using namespace std;
 
 Lexeme current;
@@ -72,8 +116,146 @@ void klump_program(Lexeme c)
 }
 void global_definitions(void)
 {
-    
+    /* <global_definitions> -> GLOBAL
+                               <const_definitions> <type_definitions>
+                               <dcl_definitions> <proc_declarations>
+                               | e
+     */
+    if (current.getToken() == "GLOBAL") {
+        current = getNext(); // need these after each one?
+        const_definitions();
+        type_definitions();
+        dcl_definitions();
+        proc_declarations();
+    }
+    // otherwise empty
 }
+void const_definitions(void)
+{
+    /* <const_definitions> -> CONST <const_list>
+                              | e
+    */
+    if (current.getNext() == "CONST") {
+        current = getNext();
+        const_list();
+    }
+}
+
+// how to implement + ????
+void const_list(void)
+{
+    // <const_list> -> { IDENTIFIER : <const> ; }+
+    if (current.getToken() == "{") {
+        current = getNext();
+        if (current.getToken() == "IDENTIFIER") {
+            current = getNext();
+            if (current.getToken() == ":") {
+                current = getNext();
+                konst();
+                if (current.getToken() == ";") {
+                    current = getNext();
+                    if (current.getToken() == "}") {
+                        current = getNext();
+                        const_list(); // start over
+                    } else {
+                        parseError(current.getLineNum(),current.getValue());
+                    }
+                } else {
+                    parseError(current.getLineNum(),current.getValue());
+                }
+            } else {
+                parseError(current.getLineNum(),current.getValue());
+            }
+        } else {
+            parseError(current.getLineNum(),current.getValue());
+        }
+    }
+}
+void konst(void)
+{
+    // <const> -> NUMBER | DECIMAL | CSTRING
+
+}
+void type_definitions()
+{
+    // <type_definitions> -> TYPE <type_list> | e
+    if (current.getToken() == "TYPE") {
+        current = getNext();
+        type_list();
+    }
+}
+
+void type_list()
+{
+    // <type_list> -> { IDENTIFIER : <structure_type> ; }+
+    if (current.getToken() == "{") {
+        current = getNext();
+        if (current.getToken() == "IDENTIFIER") {
+            current = getNext();
+            if (current.getToken() == ":") {
+                current = getNext();
+                struct_type();
+                if (current.getToken() == ";") {
+                    current = getNext();
+                    if (current.getToken() == "}") {
+                        current = getNext();
+                        type_list(); // Do it again
+                    } else {
+                        parseError(current.getLineNum(), current.getValue());
+                    }
+                } else {
+                    parseError(current.getLineNum(), current.getValue());
+                }
+            } else {
+                parseError(current.getLineNum(), current.getValue());
+            }
+        } else {
+            parseError(current.getLineNum(), current.getValue());
+        }
+    }
+}
+
+void struct_type(void)
+{
+    // <struct_type> -> <array_type> | <record_type>
+
+    if (current.getToken() == "ARRAY") {
+        array_type();
+    } else if (current.getToken() == "RECORD") {
+        record_type();
+    } else {
+        parseError(current.getLineNum(), current.getValue());
+    }
+}
+
+void array_type(void)
+{
+    // <array_type> -> ARRAY [ NUMBER ] OF <dcl_type>
+
+    // already have "ARRAY" so...
+    if (current.getToken() == "[") {
+        current = getNext();
+        if (current.getToken() == "NUMBER") {
+            current = getNext();
+            if (current.getToken() == "]") {
+                current = getNext();
+                if (current.getToken == "OF") {
+                    current = getNext();
+                    dcl_type();
+                } else {
+                    parseError(current.getLineNum(), current.getValue());
+                }
+            } else {
+                parseError(current.getLineNum(), current.getValue());
+            }
+        } else {
+            parseError(current.getLineNum(), current.getValue());
+        }
+    } else {
+        parseError(current.getLineNum(), current.getValue());
+    }
+}
+
 void dcl_definitions(void)
 {
     // dcl_definitions -> DCL dcl_list | e
