@@ -174,7 +174,11 @@ void const_list(void)
 void konst(void)
 {
     // <const> -> NUMBER | DECIMAL | CSTRING
-
+    if ((current.getToken() != "NUMBER")
+        || (current.getToken() != "DECIMAL")
+        || (current.getToken() != "CSTRING")) {
+        parseError(current.getLineNum(), current.getValue());
+    }
 }
 void type_definitions()
 {
@@ -256,6 +260,48 @@ void array_type(void)
     }
 }
 
+void record_type(void)
+{
+    // <record_type> -> RECORD <fld_test> END
+    // already have RECORD so...
+    fld_list();
+    if (current.getToken() != "END")
+        parseError(current.getLineNum(), current.getValue());
+}
+
+void fld_list(void)
+{
+    // { IDENTIFIER : <dcl_type> ; }+
+    if (current.getToken() == "{") {
+        current.getNext();
+        if (current.getToken() == "IDENTIFIER") {
+            current.getNext();
+            if (current.getToken() == ":") {
+                current.getNext();
+                dcl_type();
+                if (current.getToken() == ";") {
+                    current.getNext();
+                    if (current.getToken() == "}") {
+                        current.getNext();
+                        if (current.getToken != "END") {
+                            fld_list();
+                        }
+                    } else {
+                        parseError(current.getLineNum(), current.getValue());
+                    }
+                } else {
+                    parseError(current.getLineNum(), current.getValue());
+                }
+            } else {
+                parseError(current.getLineNum(), current.getValue());
+            }
+        } else {
+            parseError(current.getLineNum(), current.getValue());
+        }
+    } else {
+        parseError(current.getLineNum(), current.getValue());
+    }
+}
 void dcl_definitions(void)
 {
     // dcl_definitions -> DCL dcl_list | e
@@ -273,19 +319,22 @@ void dcl_definitions(void)
 
 void dcl_list(void)
 {
-  // dcl_list -> IDENTIFIER : INT ; dcl_list | e
-    if (current.getToken() == "IDENTIFIER") {
-        variables.push(current.getValue());
-        current = getNext();
-        if (current.getToken() == ":") {
+  // dcl_list -> { IDENTIFIER : <dcl_type> ; }+
+    if (current.getToken() == "{") {
+        if (current.getToken() == "IDENTIFIER") {
+            variables.push(current.getValue());
             current = getNext();
-            if (current.getToken() == "INT") {
+            if (current.getToken() == ":") {
                 current = getNext();
+                dcl_type();
                 if (current.getToken() == ";") {
-                    current = getNext();
-                    dcl_list();
+                    current.getNext();
+                    if (current.getToken() == "}") {
+                        current.getNext();
+                    } else {
+                        parseError(current.getLineNum(), current.getValue());
+                    }
                 } else {
-                    // clean off stack, necessary???
                     parseError(current.getLineNum(), current.getValue());
                 }
             } else {
@@ -295,7 +344,7 @@ void dcl_list(void)
             parseError(current.getLineNum(), current.getValue());
         }
     } else {
-        //parseError(current.getLineNum(), current.getValue());
+        parseError(current.getLineNum(), current.getValue());
     }
     
 }
