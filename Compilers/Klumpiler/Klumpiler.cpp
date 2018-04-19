@@ -82,7 +82,8 @@ void qualifier(void);
 // end_klump(void); 
 using namespace std;
 
-Lexeme current;
+Lexeme current; // lexeme currently being examined
+
 // store the variable names
 stack<string> variables; 
 
@@ -103,7 +104,7 @@ int main(void)
 void klump_program(Lexeme c)
 {
     current = c;
-    // klump_program -> <global_definitions> <procedure_list> .
+    // <klump_program> -> <global_definitions> <procedure_list> .
     global_definitions();
     procedure_list();
     // write .data and .bss sections
@@ -156,7 +157,10 @@ void const_list(void)
                     current = getNext();
                     if (current.getToken() == "}") {
                         current = getNext();
-                        const_list(); // start over
+                        if (current.getToken() != "TYPE") {
+                            // go again
+                            const_list();
+                        }
                     } else {
                         parseError(current.getLineNum(),current.getValue());
                     }
@@ -203,7 +207,8 @@ void type_list()
                     current = getNext();
                     if (current.getToken() == "}") {
                         current = getNext();
-                        type_list(); // Do it again
+                        if (current.getToken() != "DCL")
+                            type_list(); // Do it again
                     } else {
                         parseError(current.getLineNum(), current.getValue());
                     }
@@ -331,6 +336,10 @@ void dcl_list(void)
                     current.getNext();
                     if (current.getToken() == "}") {
                         current.getNext();
+                        if (current.getToken() != "PROC") {
+                            // play again
+                            dcl_list();
+                        }
                     } else {
                         parseError(current.getLineNum(), current.getValue());
                     }
@@ -347,6 +356,218 @@ void dcl_list(void)
         parseError(current.getLineNum(), current.getValue());
     }
     
+}
+
+void dcl_type(void)
+{
+    // <dcl_type> -> <atomic_type> | IDENTIFIER
+    
+    if (current.getToken() == "IDENTIFIER")
+        current.getNext();
+    else
+        atomic_type();
+
+}
+
+void atomic_type(void)
+{
+    // <atomic_type> -> BOOL | INT | REAL | STRING
+
+    if (current.getToken() == "BOOL" || current.getToken() == "INT" ||
+        current.getToken() == "REAL" || current.getToken() == "STRING")
+        current.getNext();
+    else
+        parseError(current.getLineNum(), current.getValue());
+}
+
+void proc_declarations(void)
+{
+    // <proc_declarations> -> PROC <signature_list> | e
+
+    if (current.getToken() == "PROC") {
+        current.getNext();
+        signature_list();
+    }
+    // otherwise assume no procedure list???
+}
+
+void signature_list(void)
+{
+    // <signature_list> -> <proc_signature> { ; <proc_signature }*
+
+    if (current.getToken() == "IDENTIFIER") {
+        current.getNext();
+        proc_signature();
+        current.getNext();
+        if (current.getToken() == ";") {
+            // go again 
+            current.getNext();
+            signature_list();
+        }
+    }
+}
+
+void proc_signature(void)
+{
+    // <proc_signature> -> IDENTIFIER <formal_args> <return_type> ;
+
+    // already have IDENTIFIER so...
+    formal_args();
+    return_type();
+    if (current.getToken() != ";")
+        parseError(current.getLineNum(), current.getValue());
+}
+
+void formal_args(void)
+{
+    // <formal_args> -> ( <formal_arg_list> ) | e
+
+    if (current.getToken() == "(") {
+        current.getNext();
+        formal_arg_list();
+        if (current.getToken() == ")") {
+            current.getNext();
+        } else {
+            parseError(current.getLineNum(), current.getValue());
+        }
+    } 
+}
+
+void formal_arg_list(void)
+{
+    // <formal_arg_list> -> <formal_arg> { , <formal_arg> }*
+
+    formal_arg();
+    while(current.getToken() == ",") {
+        formal_arg();
+    }
+}
+
+void formal_arg(void)
+{
+    // <formal_arg> -> <call_by> IDENTIFIER : <dcl_type>
+
+    call_by();
+    if (current.getToken() == "IDENTIFIER") {
+        current.getNext();
+        if (current.getToken() == ":") {
+            current.getNext();
+            dcl_type();
+        } else {
+            parseError(current.getLineNum(), current.getValue());
+        }
+    } else {
+        parseError(current.getLineNum(), current.getValue());
+    }
+}
+
+void call_by(void)
+{
+    // <call_by> -> VAR | e
+    if (current.getToken() == "VAR") {
+        current.getNext();
+    }
+}
+
+void return_type(void)
+{
+    // <return_type> -> <atomic_type> | e
+    
+    atomic_type();
+}
+
+void actual_args(void)
+{
+    // <actual_args> -> ( <actual_arg_list> ) | e
+
+    if (current.getToken() == "(") {
+        current.getNext();
+        actual_arg_list();
+        if (current.getToken() == ")") {
+            current.getNext();
+        } else {
+            parseError(current.getLineNum(), current.getValue());
+        }
+    }
+    // otherwise assume no actual arguments
+}
+
+void actual_arg_list(void)
+{
+    // <actual_arg_list> -> <actual_arg> { , <actual_arg> }*
+
+    actual_arg();
+    while (current.getToken() == ",") {
+        current.getNext();
+        actual_arg();
+    }
+}
+
+void actual_arg(void)
+{
+    // <actual_arg> -> <expression>
+
+    expression();
+}
+
+void procedure_list(void)
+{
+    // <procedure_list> -> { <procedure> }*
+
+    while (current.getToken() == "PROCEDURE") {
+        current.getNext();
+        procedure();
+    }
+}
+
+void procedure(void)
+{
+    // <procedure> -> <proc_head> <proc_body>
+
+    proc_head();
+    proc_body();
+}
+
+void proc_head(void)
+{
+    // <proc_head> -> PROCEDURE IDENTIFIER ;
+
+    /* REMEMBER THAT WE ALREADY GOBBLED UP "PROCEUDURE" */
+    if (current.getToken() == "IDENTIFIER") {
+        current.getNext();
+        if (current.getToken() == ";") {
+            current.getNext();
+        } else {
+            parseError(current.getLineNum(), current.getValue());
+        }
+    } else {
+        parseError(current.getLineNum(), current.getValue());
+    }
+}
+
+void proc_body(void)
+{
+    // <proc_body> -> <dcl_definitions> BEGIN <statement_list> END
+
+    dcl_definitions();
+    if (current.getToken() == "BEGIN") {
+        current.getNext();
+        statement_llst();
+        if (current.getToken() == "END") {
+            current.getNext();
+        } else {
+            parseError(current.getLineNum(), current.getValue());
+        }
+    } else {
+        parseError(current.getLineNum(), current.getValue());
+    }
+}
+
+void statement_list(void)
+{
+    // <statement_list> -> { <statement> }*
+
+
 }
 
 void procedure(void)
@@ -407,7 +628,7 @@ void write_statement(void)
     if (current.getToken() == "(") {
         current = getNext();
         if (current.getToken() == "IDENTIFIER") {
-            string var = current.getValue(); // hold onto this
+            Lexeme var = current; // hold onto this
             current = getNext();
             if (current.getToken() == ")") {
                 current = getNext();

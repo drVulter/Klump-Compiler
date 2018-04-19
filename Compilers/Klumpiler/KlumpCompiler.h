@@ -83,7 +83,7 @@ void back(void)
     cout << "int 0x80\n";
 }
 
-void emitWriteStatement(string identifier)
+void emitWriteStatement(Lexeme l)
 {
     /*
       Basic print statement, uses C printf function.
@@ -91,17 +91,22 @@ void emitWriteStatement(string identifier)
 
       push ebp
       mov ebp, esp
-      push dword [<IDENTIFIER>]
+      push dword [<IDENTIFIER>] OR push dword NUMBER
       push dword str
       call _printf
       add esp, 8
       mov esp, ebp
       pop ebp
      */
+    string outString;
+    if (l.getToken() == "NUMBER")
+        outString = l.getValue();
+    else
+        outString = "[" + l.getValue() + "]";
     comment("Print statement");
     cout << "push ebp\n";
     cout << "mov ebp, esp\n";
-    cout << "push dword [" << identifier << "]\n";
+    cout << "push dword " << outString << "\n";
     cout << "push dword str\n"; // str predefined for formatting
     cout << "call _printf\n"; // actual function call
     cout << "add esp, 8\n";
