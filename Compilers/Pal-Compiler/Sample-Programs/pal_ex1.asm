@@ -16,7 +16,8 @@ push dword [A]
 mov edx, 0
 pop ebx
 pop eax
-div ebx
+cdq
+idiv ebx
 push eax
 ;; Emitting an assignment.
 pop eax

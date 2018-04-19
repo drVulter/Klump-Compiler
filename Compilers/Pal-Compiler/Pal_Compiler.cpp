@@ -60,7 +60,6 @@ void pal_program(Lexeme c)
     // write .data and .bss sections
     emitBss(variables);
     emitData();
-    end_pal();
     // make sure we have "." at the end
     //if (current.getToken() != ".")
     //    parseError(current.getLineNum(), current.getValue());
@@ -74,8 +73,6 @@ void dcl_definitions(void)
     if (current.getToken() == "DCL") {
         current = getNext();
         dcl_list();
-    } else {
-        parseError(current.getLineNum(), current.getValue());
     }
     // if not, assume no dcl_list and go right to procedure?
     //procedure();
@@ -122,14 +119,14 @@ void procedure(void)
     } else {
         parseError(current.getLineNum(), current.getValue());
     }
-    //cout << "passed\n";
     // if that all passes, check for the "END"
     if (current.getToken() == "END") {
         current = getNext();
-        back(); // emit cleanup for .data section
-        //end_pal();
-    } else
+        //back(); // emit cleanup for .data section
+        end_pal();
+    } else {
         parseError(current.getLineNum(), current.getValue());
+    }
 
 }
 
@@ -167,8 +164,8 @@ void write_statement(void)
     /* write_statement -> WRITELN ( IDENTIFIER ) ; */
     if (current.getToken() == "(") {
         current = getNext();
-        if (current.getToken() == "IDENTIFIER") {
-            string var = current.getValue(); // hold onto this
+        if (current.getToken() == "IDENTIFIER" || "NUMBER") {
+            Lexeme var = current; // hold onto this
             current = getNext();
             if (current.getToken() == ")") {
                 current = getNext();
@@ -251,10 +248,6 @@ void more_term(void)
     }
 }
 
-
-
-
-
 void addop(void)
 {
     // addop -> + | -
@@ -318,6 +311,8 @@ void end_pal(void)
     if (current.getToken() != ".") {
         cout << current.getToken() << endl;
         parseError(current.getLineNum(), current.getValue());
+    } else {
+        back(); // emit cleanup for .data section
     }
 }
 
