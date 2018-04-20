@@ -85,7 +85,15 @@ using namespace std;
 Lexeme current; // lexeme currently being examined
 
 // store the variable names
-stack<string> variables; 
+stack<string> variables;
+
+// Different literals for beginning a <statement>
+set<string> beginStatement =
+{
+    "#", "READ", "READLN", "WRITE", "WRITELN",
+    "IDENTIFIER", "CALL", "RETURN", "GOTO", ";",
+    "DO", "IF", "CASE", "FOR", "NEXT", "BREAK"
+}
 
 int main(void)
 {
@@ -552,7 +560,7 @@ void proc_body(void)
     dcl_definitions();
     if (current.getToken() == "BEGIN") {
         current.getNext();
-        statement_llst();
+        statement_list();
         if (current.getToken() == "END") {
             current.getNext();
         } else {
@@ -567,217 +575,375 @@ void statement_list(void)
 {
     // <statement_list> -> { <statement> }*
 
-
-}
-
-void procedure(void)
-{
-    // procedure -> BEGIN statement_list END
-
-    // first check for "BEGIN"
-    if (current.getToken() == "BEGIN") {
-        current = getNext();
-        front();
-        statement_list();
-    } else {
-        parseError(current.getLineNum(), current.getValue());
-    }
-    //cout << "passed\n";
-    // if that all passes, check for the "END"
-    if (current.getToken() == "END") {
-        current = getNext();
-        back(); // emit cleanup for .data section
-        //end_pal();
-    } else
-        parseError(current.getLineNum(), current.getValue());
-
-}
-
-void statement_list(void)
-{
-    /* statement_list -> statement statement_list | e */
-
-    // check for a statement
-    if ((current.getToken() == "WRITELN") || (current.getToken() == "IDENTIFIER")) {
+    // check for a literal beginning a statement
+    if (beginStatement.find(current.getToken()) != beginStatement.end()) {
         statement();
-        statement_list();
-    } else {
-        //parseError(current.getLineNum(), current.getValue());
+        statement_list(); // go again
     }
+    // otherwise assume empty
 }
+
 void statement(void)
 {
-    /* statement -> write_statement | assignment_statement */
+    // <statement> -> <label> <exec_statement>
 
-    // check for write statement or assignment
-    if (current.getToken() == "WRITELN") {
-        current = getNext();
+    label();
+    exec_statement();
+}
+
+void label(void)
+{
+    // <label> -> # NUMBER | e
+
+    if (current.getToken() == "#") {
+        current.getNext();
+        if (current.getToken() == "NUMBER") {
+            current.getNext();
+        } else {
+            parseError(current.getLineNum(), current.getValue());
+        }
+    }
+}
+
+void exec_statement(void)
+{
+    /* <exec_statement> -> <read_statement>
+       | <write_statement>
+       | <assign_statement>
+       | <call_statement>
+       | <return_statement>
+       | <goto_statement>
+       | <empty_statement>
+       | <compound_statement>
+       | <if_statement>
+       | <while_statement>
+       | <case_statement>
+       | <for_statement>
+       | <next_statement>
+       | <break_statement>
+     */
+
+    // note: some cases do not gobble current lexeme since
+    // there is an option in the applicable statement function
+    switch (current.getToken) {
+    case "READ":
+        read_statement();
+        break;
+    case "READLN":
+        read_statement();
+        break;
+    case "WRITE":
         write_statement();
-    } else if (current.getToken() == "IDENTIFIER") {
-        //current = getNext();
-        // don't getNext yet, will need this val for next function
+        break;
+    case "WRITELN":
+        write_statement();
+        break;
+    case "IDENTIFIER":
+        current.getNext();
         assignment_statement();
-    } else {
+        break;
+    case "CALL":
+        current.getNext();
+        call_statement();
+        break;
+    case "RETURN":
+        current.getNext();
+        return_statement();
+        break;
+    case "GOTO":
+        current.getNext();
+        goto_statement();
+        break;
+    case ";":
+        current.getNext();
+        empty_statement();
+        break;
+    case "DO":
+        current.getNext();
+        compound_statement();
+        break;
+    case "IF":
+        current.getNext();
+        if_statement();
+        break;
+    case "WHILE":
+        current.getNext();
+        while_statement();
+        break;
+    case "CASE":
+        current.getNext();
+        case_statement();
+        break;
+    case "FOR":
+        current.getNext();
+        for_statement();
+        break;
+    case "NEXT":
+        current.getNext();
+        next_statement();
+        break;
+    case "BREAK":
+        current.getNext();
+        break_statement();
+        break;
+    default:
         parseError(current.getLineNum(), current.getValue());
+        break;
+    }
+}
+
+void read_statement(void)
+{
+    /* <read_statement> -> READ <actual_args> ;
+       | READLN <actual_args> ;
+     */
+
+    if (current.getToken() == "READ") {
+        current.getNext();
+        actual_args();
+        if (current.getToken() == ";") {
+            current.getNext();
+        } else {
+            parseError(current.getLineNum(), current.getValue());
+        }
+    } else { // safe to use else here?
+        current.getNext();
+        actual_args();
+        if (current.getToken() == ";") {
+            current.getNext();
+        } else {
+            parseError(current.getLineNum(), current.getValue());
+        }
     }
 }
 
 void write_statement(void)
 {
-    /* write_statement -> WRITELN ( IDENTIFIER ) ; */
-    if (current.getToken() == "(") {
-        current = getNext();
-        if (current.getToken() == "IDENTIFIER") {
-            Lexeme var = current; // hold onto this
-            current = getNext();
-            if (current.getToken() == ")") {
-                current = getNext();
-                if (current.getToken() == ";") {
-                    // successful parsing, so emit the statement
-                    emitWriteStatement(var);
-                    current = getNext();
-                } else
-                    parseError(current.getLineNum(), current.getValue());
-            } else
-                parseError(current.getLineNum(), current.getValue());
-        } else
-            parseError(current.getLineNum(), current.getValue());
-    } else
-        parseError(current.getLineNum(), current.getValue());
-}
+    /* <write_statement> -> WRITE <actual_args> ;
+       | WRITELN <actual_args> ;
+     */
 
-void assignment_statement(void)
-{
-    /* assignment_statement -> IDENTIFIER := expression ; */
-
-    // save the value
-    string id = current.getValue();
-    // NOW get next lexeme
-    current = getNext();
-    if (current.getToken() == ":=") {
-        current = getNext();
-        expression();
-        emitAssignment(id);
+    if (current.getToken() == "WRITE") {
+        current.getNext();
+        actual_args();
         if (current.getToken() == ";") {
-            current = getNext();
-        } else
+            current.getNext();
+        } else {
             parseError(current.getLineNum(), current.getValue());
-    } else
-        parseError(current.getLineNum(), current.getValue());
-}
-
-void expression(void)
-{
-    /* expression -> term more_expression */
-
-    term();
-    more_expression();
-}
-
-void more_expression(void)
-{
-    /* more_expression -> addop term more_expression | e */
-
-    // deal with + or - here ???? or use addop function
-    if ((current.getToken() == "+") || (current.getToken() == "-")) {
-        //current  = getNext(); // get rid of this if using addop()
-        string opCode = current.getValue();
-        addop();
-        term();
-        emitAddop(opCode);
-        more_expression();
-    }
-}
-
-void term(void)
-{
-    /* term -> factor more_term */
-
-    factor();
-    more_term();
-}
-
-void more_term(void)
-{
-    /* more_term -> mulop factor more_term | e */
-
-    if ((current.getToken() == "*") || (current.getToken() == "/")) {
-        //current = getNext(); // get rid of if using mulop function
-        string opCode = current.getValue();
-        mulop();
-        factor();
-        emitMulop(opCode);
-        more_term();
-    }
-}
-
-
-
-
-
-void addop(void)
-{
-    // addop -> + | -
-
-    //string opCode = current.getValue();
-
-    if (current.getToken() == "+") {
-        //emitAddop(opCode);
-        current = getNext();
-    } else if (current.getToken() == "-") {
-        //emitAddop(opCode);
-        current = getNext();
-    }
-
-    
-}
-void mulop(void)
-{
-    {
-        // mulop -> * | / 
-
-        //string opCode = current.getValue();
-        if (current.getToken() == "*") {
-            //emitMulop(opCode);
-            current = getNext();
-        } else if (current.getToken() == "/") {
-            //emitMulop(opCode);
-            current = getNext();
+        }
+    } else { // safe to use else here?
+        current.getNext();
+        actual_args();
+        if (current.getToken() == ";") {
+            current.getNext();
+        } else {
+            parseError(current.getLineNum(), current.getValue());
         }
     }
 }
 
-void factor(void)
+void assignment_statement(void)
 {
-    /* factor -> IDENTIFIER | NUMBER | ( EXPRESSION ) */
+    // <assignment_statement> -> <lval> := <expression> ;
 
-    // need to save the value so we can push it onto the stack
-    string val;
-    if (current.getToken() == "IDENTIFIER") {
-        val = current.getValue();
-        emitVar(val);
-        current = getNext();
-    } else if (current.getToken() == "NUMBER") {
-        val = current.getValue();
-        emitNumber(val);
-        current = getNext();
-    } else if (current.getToken() == "(") {
-        current = getNext();
+    lval(); // remember "IDENTIFIER"  gobbled!
+    if (current.getToken() == ":=") {
+        current.getNext();
         expression();
-        if (current.getToken() == ")")
-            current = getNext();
-        else
+        if (current.getToken() == ";") {
+            current.getNext();
+        } else {
+            parseError(current.getLineNum(), current.getToken());
+        }
+    } else {
+        parseError(current.getLineNum(), current.getToken());
+    }
+}
+
+void call_statement(void)
+{
+    // <call_statement> -> CALL IDENTIFIER <actual_args> ;
+
+    // already have CALL so...
+    if (current.getToken() == "IDENTIFIER") {
+        current.getNext();
+        actual_args();
+        if (current.getToken() == ";") {
+            current.getNext();
+        } else {
+            parseError(current.getLineNum(), current.getToken());
+        }
+    } else {
+        parseError(current.getLineNum(), current.getToken());
+    }
+}
+
+void return_statement(void)
+{
+    // <return_statement> -> RETURN [ <expression> ] ;
+
+    // already have RETURN so...
+    if (current.getToken() == "[") {
+        current.getNext();
+        expression();
+        if (current.getToken() == "]") {
+            current.getNext();
+            if (current.getToken() == ";") {
+                current.getNext();
+            } else {
+                parseError(current.getLineNum(), current.getToken());
+            }
+        } else {
+            parseError(current.getLineNum(), current.getToken());
+        }
+    } else {
+        parseError(current.getLineNum(), current.getToken());
+    }
+}
+
+void goto_statement(void)
+{
+    // <goto_statement> -> GOTO <label> ;
+
+    // already have GOTO so...
+    label();
+    if (current.getToken() == ";")
+        current.getNext();
+    else
+        parseError(current.getLineNum(), current.getValue);
+}
+
+void empty_statement(void)
+{
+    // <empty_statement> -> ;
+
+    // already gobbled ; so...
+    // don't do anything!
+}
+
+void compound_statement(void)
+{
+    // <compound_statement> -> DO ; <statement_list> END ;
+
+    // already gobbled DO so...
+    if (current.getToken() = ";") {
+        current.getNext();
+        statement_list();
+        if (current.getToken() == "END") {
+            current.getNext();
+            if (current.getToken() == ";") {
+                current.getNext();
+            } else {
+                parseError(current.getLineNum(), current.getValue());
+            }
+        } else {
             parseError(current.getLineNum(), current.getValue());
+        }
     } else {
         parseError(current.getLineNum(), current.getValue());
     }
-
 }
-void end_pal(void)
+
+void if_statement(void)
 {
-    if (current.getToken() != ".") {
-        cout << current.getToken() << endl;
+    /* <if_statement> -> IF ( <comparison> )
+       THEN <statement>
+       <else_clause>
+     */
+
+    // already gobbled IF so...
+    if (current.getToken() == "(") {
+        current.getNext();
+        comparison();
+        if (current.getToken() == ")") {
+            current.getNext();
+            if (current.getToken() == "THEN") {
+                current.getNext();
+                statement();
+                else_clause();
+            } else {
+                parseError(current.getLineNum(), current.getValue());
+            }
+        } else {
+            parseError(current.getLineNum(), current.getValue());
+        }
+    } else {
         parseError(current.getLineNum(), current.getValue());
     }
 }
 
+void else_clause(void)
+{
+    // <else_clause> -> ELSE <statement> | e
+
+    if (current.getToken() == "ELSE") {
+        current.getNext();
+        statement();
+    }
+}
+
+void while_statement(void)
+{
+    // <while_statement> -> WHILE ( <comparison> ) <statement>
+
+    // already gobbled WHILE so...
+    if (current.getToken() == "(") {
+        current.getNext();
+        comparison();
+        if (current.getToken() == ")") {
+            current.getNext();
+            statement();
+        } else {
+            parseError(current.getLineNum(), current.getValue());
+        }
+    } else {
+        parseError(current.getLineNum(), current.getValue());
+    }
+}
+
+void case_statement(void)
+{
+    // <case_statement> -> CASE ( <expression> ) <case_list>
+
+    // already gobbled CASE so...
+    if (current.getToken() == "(") {
+        current.getNext();
+        expression();
+        if (current.getToken() == ")") {
+            current.getNext();
+            case_list();
+        } else {
+            parseError(current.getLineNum(), current.getValue());
+        }
+    } else {
+        parseError(current.getLineNum(), current.getValue());
+    }
+}
+
+void case_list(void)
+{
+    /* <case_list> -> { <unary> NUMBER : <statement> }*
+       DEFAULT : <statement>
+     */
+
+    if ((current.getToken() == "+") ||
+        (current.getToken() == "-") ||
+        (current.getToken() == "NUMBER")) {
+        unary();
+        if (current.getToken() == "NUMBER") {
+            current.getNext();
+            if (current.getToken() == ":") {
+                current.getNext();
+                statement();
+                case_list();
+            } else {
+                parseError(current.getLineNum(), current.getValue());
+            }
+        } else {
+            parseError(current.getLineNum(), current.getValue());
+        }
+    } else if (current.getToken() == "DEFAULT") {
+        current.getNext();
+
+    }
+}
