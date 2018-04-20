@@ -138,9 +138,8 @@ void statement_list(void)
     if ((current.getToken() == "WRITELN") || (current.getToken() == "IDENTIFIER")) {
         statement();
         statement_list();
-    } else {
-        //parseError(current.getLineNum(), current.getValue());
-    }
+    } 
+    
 }
 void statement(void)
 {
