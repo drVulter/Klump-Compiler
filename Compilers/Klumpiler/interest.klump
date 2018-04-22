@@ -1,0 +1,50 @@
+global
+
+  const
+    monthsinyear : 12;
+
+  proc
+    compound ( amount : real, intrate : real) : real;
+
+procedure main;
+
+  dcl
+    balance  : real;
+    deposit  : real;
+    intrate  : real;
+    noyears  : int;
+    counter  : int;
+
+begin { main }
+
+    balance := 0.0;
+    write ('enter annual deposit: ');
+    readln (deposit);
+    write ('enter interest rate: ');
+    readln (intrate);
+    write ('enter number of years to project: ');
+    readln (noyears);
+    for counter := 1 to noyears
+    do;
+      balance := balance + deposit;
+      balance := compound (balance,intrate);
+      writeln ('year ',counter,' bank balance: ',balance);
+    end;
+
+end   { main }
+
+procedure compound;
+
+  dcl
+    monthlyrate : real;
+    counter     : int;
+
+begin { compound }
+
+  monthlyrate := intrate / monthsinyear;
+  for counter := monthsinyear downto 1
+    amount := amount*(1.0+monthlyrate);
+  return  amount;
+
+end   { compound }
+.

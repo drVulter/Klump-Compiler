@@ -182,7 +182,8 @@ mulligan: // goto
           }
 	    // determine the token
 	    if (value.length() == 3) 
-          token = "ASCII";
+          //token = "ASCII";
+          token = "CSTRING";
 	    else
           token = "CSTRING"; // constant???
       }

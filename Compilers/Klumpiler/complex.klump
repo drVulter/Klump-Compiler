@@ -1,0 +1,142 @@
+global
+const
+  i         : 'i';
+  prompt    : 'enter a complex number!';
+  sum       : 'the sum is:        ';
+  diff      : 'the difference is: ';
+  prod      : 'the product is:    ';
+  quot      : 'the quotient is:   ';
+  conj      : 'the conjugate is:  ';
+  mods      : 'the modulus is:    ';
+  epsilon   : 0.00001;
+
+type
+  complex   : record first : real; second : real; end;
+
+proc
+  get       (x : complex);
+  put       (x : complex);
+  add       (x : complex,y : complex,z : complex);
+  sub       (x : complex,y : complex,z : complex);
+  mul       (x : complex,y : complex,z : complex);
+  div       (x : complex,y : complex,z : complex);
+  conjugate (x : complex,y : complex);
+  modulus   (x : complex) : real;
+  sqrt      (x : real) : real;
+  abs       (x : real) : real;
+
+procedure main;
+dcl
+  a         : complex;
+  b         : complex;
+  c         : complex;
+begin {main}
+  writeln (prompt);
+  call get (a);
+  writeln (prompt);
+  call get (b);
+  call add (a,b,c);
+  write (sum);
+  call put (c);
+  call sub (a,b,c);
+  write (diff);
+  call put (c);
+  call mul (a,b,c);
+  write (prod);
+  call put (c);
+  call div (a,b,c);
+  write (quot);
+  call put (c);
+  call conjugate (a,c);
+  write (conj);
+  call put (c);
+  call conjugate (b,c);
+  write (conj);
+  call put (c);
+  writeln (mods,modulus(a));
+  writeln (mods,modulus(b));
+end   {main}
+
+procedure get;
+begin {get}
+  write ('enter the real part: ');
+  readln (x.first);
+  write ('enter the imaginary part: ');
+  readln (x.second);
+end   {get}
+
+procedure put;
+begin {put}
+  writeln ('the complex number is (',x.first,') + (',x.second,') ',i);
+end   {put}
+
+procedure add;
+begin {add}
+  z.first := x.first + y.first;
+  z.second := x.second + y.second;
+end   {add}
+
+procedure sub;
+begin {sub}
+  z.first := x.first - y.first;
+  z.second := x.second - y.second;
+end   {sub}
+
+procedure mul;
+begin {mul}
+  z.first := x.first*y.first - x.second*y.second;
+  z.second := x.first*y.second + x.second*y.first;
+end   {mul}
+
+procedure div;
+dcl
+  m         : real;
+  scale     : real;
+  temp      : complex;
+begin {div}
+  m := modulus(y);
+  if (m > 0.0)
+    then do;
+         scale := 1.0/(m*m);
+         call conjugate (y,temp);
+         call mul (x,temp,z);
+         z.first := scale*z.first;
+         z.second := scale*z.second;
+         end;
+end   {div}
+
+procedure conjugate;
+begin {conjugate}
+  y.first := x.first;
+  y.second := - x.second;
+end   {conjugate}
+
+procedure modulus;
+begin {modulus}
+  return sqrt (x.first*x.first + x.second*x.second);
+end   {modulus}
+
+procedure sqrt;
+dcl
+  guess     : real;
+  newguess  : real;
+begin {sqrt}
+  if (x = 0.0)
+    then return x;
+  guess := 1.0;
+  newguess := 0.5 * (guess + x/guess);
+  while (abs(newguess - guess) > epsilon)
+  do;
+    guess := newguess;
+    newguess := 0.5 * (guess + x/guess);
+  end;
+  return newguess;
+end   {sqrt}
+
+procedure abs;
+begin {abs}
+  if (x >= 0)
+    then return x;
+    else return -x;
+end   {abs}
+.

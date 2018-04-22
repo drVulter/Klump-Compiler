@@ -9,9 +9,11 @@
 #include <cstdlib>
 #include "Scanner.h"
 #include "KlangError.h"
-#include "PalCompiler.h"
+#include "KlumpCompiler.h"
 #include <string>
 #include <stack>
+#include <set>
+#include <map>
 
 //  add prototypes
 void klump_program(Lexeme c);
@@ -93,7 +95,7 @@ set<string> beginStatement =
     "#", "READ", "READLN", "WRITE", "WRITELN",
     "IDENTIFIER", "CALL", "RETURN", "GOTO", ";",
     "DO", "IF", "CASE", "FOR", "NEXT", "BREAK"
-}
+};
 
 int main(void)
 {
@@ -116,9 +118,9 @@ void klump_program(Lexeme c)
     global_definitions();
     procedure_list();
     // write .data and .bss sections
-    emitBss(variables);
-    emitData();
-    end_pal();
+    //emitBss(variables);
+    //emitData();
+    //end_pal();
     // make sure we have "." at the end
     //if (current.getToken() != ".")
     //    parseError(current.getLineNum(), current.getValue());
@@ -144,7 +146,7 @@ void const_definitions(void)
     /* <const_definitions> -> CONST <const_list>
                               | e
     */
-    if (current.getNext() == "CONST") {
+    if (current.getToken() == "CONST") {
         current = getNext();
         const_list();
     }
@@ -154,8 +156,6 @@ void const_definitions(void)
 void const_list(void)
 {
     // <const_list> -> { IDENTIFIER : <const> ; }+
-    if (current.getToken() == "{") {
-        current = getNext();
         if (current.getToken() == "IDENTIFIER") {
             current = getNext();
             if (current.getToken() == ":") {
@@ -163,15 +163,10 @@ void const_list(void)
                 konst();
                 if (current.getToken() == ";") {
                     current = getNext();
-                    if (current.getToken() == "}") {
-                        current = getNext();
-                        if (current.getToken() != "TYPE") {
+                        if (current.getToken() == "IDENTIFIER") {
                             // go again
                             const_list();
                         }
-                    } else {
-                        parseError(current.getLineNum(),current.getValue());
-                    }
                 } else {
                     parseError(current.getLineNum(),current.getValue());
                 }
@@ -181,14 +176,15 @@ void const_list(void)
         } else {
             parseError(current.getLineNum(),current.getValue());
         }
-    }
 }
 void konst(void)
 {
     // <const> -> NUMBER | DECIMAL | CSTRING
-    if ((current.getToken() != "NUMBER")
-        || (current.getToken() != "DECIMAL")
-        || (current.getToken() != "CSTRING")) {
+    if ((current.getToken() == "NUMBER")
+        || (current.getToken() == "DECIMAL")
+        || (current.getToken() == "CSTRING")) {
+        current = getNext();
+    } else {
         parseError(current.getLineNum(), current.getValue());
     }
 }
@@ -204,8 +200,6 @@ void type_definitions()
 void type_list()
 {
     // <type_list> -> { IDENTIFIER : <structure_type> ; }+
-    if (current.getToken() == "{") {
-        current = getNext();
         if (current.getToken() == "IDENTIFIER") {
             current = getNext();
             if (current.getToken() == ":") {
@@ -213,13 +207,8 @@ void type_list()
                 struct_type();
                 if (current.getToken() == ";") {
                     current = getNext();
-                    if (current.getToken() == "}") {
-                        current = getNext();
-                        if (current.getToken() != "DCL")
+                        if (current.getToken() == "IDENTIFIER")
                             type_list(); // Do it again
-                    } else {
-                        parseError(current.getLineNum(), current.getValue());
-                    }
                 } else {
                     parseError(current.getLineNum(), current.getValue());
                 }
@@ -229,7 +218,6 @@ void type_list()
         } else {
             parseError(current.getLineNum(), current.getValue());
         }
-    }
 }
 
 void struct_type(void)
@@ -239,6 +227,7 @@ void struct_type(void)
     if (current.getToken() == "ARRAY") {
         array_type();
     } else if (current.getToken() == "RECORD") {
+        current = getNext();
         record_type();
     } else {
         parseError(current.getLineNum(), current.getValue());
@@ -256,7 +245,7 @@ void array_type(void)
             current = getNext();
             if (current.getToken() == "]") {
                 current = getNext();
-                if (current.getToken == "OF") {
+                if (current.getToken() == "OF") {
                     current = getNext();
                     dcl_type();
                 } else {
@@ -278,30 +267,27 @@ void record_type(void)
     // <record_type> -> RECORD <fld_test> END
     // already have RECORD so...
     fld_list();
-    if (current.getToken() != "END")
+    if (current.getToken() == "END") {
+        current = getNext();
+    } else {
         parseError(current.getLineNum(), current.getValue());
+    }
+        
 }
 
 void fld_list(void)
 {
     // { IDENTIFIER : <dcl_type> ; }+
-    if (current.getToken() == "{") {
-        current.getNext();
         if (current.getToken() == "IDENTIFIER") {
-            current.getNext();
+            current = getNext();
             if (current.getToken() == ":") {
-                current.getNext();
+                current = getNext();
                 dcl_type();
                 if (current.getToken() == ";") {
-                    current.getNext();
-                    if (current.getToken() == "}") {
-                        current.getNext();
-                        if (current.getToken != "END") {
+                    current = getNext();
+                        if (current.getToken() == "IDENTIFIER") {
                             fld_list();
                         }
-                    } else {
-                        parseError(current.getLineNum(), current.getValue());
-                    }
                 } else {
                     parseError(current.getLineNum(), current.getValue());
                 }
@@ -311,20 +297,30 @@ void fld_list(void)
         } else {
             parseError(current.getLineNum(), current.getValue());
         }
-    } else {
-        parseError(current.getLineNum(), current.getValue());
-    }
+        /*
+        if (current.getToken() == "END") {
+            current = getNext();
+            if (current.getToken() == ";") {
+                current = getNext();
+            } else {
+                parseError(current.getLineNum(), current.getValue());
+            }
+        } else {
+            parseError(current.getLineNum(), current.getValue());
+        }
+        */
 }
 void dcl_definitions(void)
 {
     // dcl_definitions -> DCL dcl_list | e
     // get the first lexeme
     //current = getNext(); // from Scanner.cpp
+
     if (current.getToken() == "DCL") {
         current = getNext();
         dcl_list();
     } else {
-        parseError(current.getLineNum(), current.getValue());
+        //parseError(current.getLineNum(), current.getValue());
     }
     // if not, assume no dcl_list and go right to procedure?
     //procedure();
@@ -333,7 +329,6 @@ void dcl_definitions(void)
 void dcl_list(void)
 {
   // dcl_list -> { IDENTIFIER : <dcl_type> ; }+
-    if (current.getToken() == "{") {
         if (current.getToken() == "IDENTIFIER") {
             variables.push(current.getValue());
             current = getNext();
@@ -341,16 +336,11 @@ void dcl_list(void)
                 current = getNext();
                 dcl_type();
                 if (current.getToken() == ";") {
-                    current.getNext();
-                    if (current.getToken() == "}") {
-                        current.getNext();
-                        if (current.getToken() != "PROC") {
+                    current = getNext();
+                        if (current.getToken() == "IDENTIFIER") {
                             // play again
                             dcl_list();
                         }
-                    } else {
-                        parseError(current.getLineNum(), current.getValue());
-                    }
                 } else {
                     parseError(current.getLineNum(), current.getValue());
                 }
@@ -360,10 +350,6 @@ void dcl_list(void)
         } else {
             parseError(current.getLineNum(), current.getValue());
         }
-    } else {
-        parseError(current.getLineNum(), current.getValue());
-    }
-    
 }
 
 void dcl_type(void)
@@ -371,7 +357,7 @@ void dcl_type(void)
     // <dcl_type> -> <atomic_type> | IDENTIFIER
     
     if (current.getToken() == "IDENTIFIER")
-        current.getNext();
+        current = getNext();
     else
         atomic_type();
 
@@ -380,10 +366,9 @@ void dcl_type(void)
 void atomic_type(void)
 {
     // <atomic_type> -> BOOL | INT | REAL | STRING
-
     if (current.getToken() == "BOOL" || current.getToken() == "INT" ||
         current.getToken() == "REAL" || current.getToken() == "STRING")
-        current.getNext();
+        current = getNext();
     else
         parseError(current.getLineNum(), current.getValue());
 }
@@ -391,9 +376,9 @@ void atomic_type(void)
 void proc_declarations(void)
 {
     // <proc_declarations> -> PROC <signature_list> | e
-
     if (current.getToken() == "PROC") {
-        current.getNext();
+
+        current = getNext();
         signature_list();
     }
     // otherwise assume no procedure list???
@@ -404,12 +389,12 @@ void signature_list(void)
     // <signature_list> -> <proc_signature> { ; <proc_signature }*
 
     if (current.getToken() == "IDENTIFIER") {
-        current.getNext();
+        current = getNext();
         proc_signature();
-        current.getNext();
+        current = getNext();
         if (current.getToken() == ";") {
             // go again 
-            current.getNext();
+            current = getNext();
             signature_list();
         }
     }
@@ -417,13 +402,16 @@ void signature_list(void)
 
 void proc_signature(void)
 {
-    // <proc_signature> -> IDENTIFIER <formal_args> <return_type> ;
+    // <proc_signature> -> IDENTIFIER <formal_args> :  <return_type> ;
 
     // already have IDENTIFIER so...
     formal_args();
-    return_type();
-    if (current.getToken() != ";")
-        parseError(current.getLineNum(), current.getValue());
+    if (current.getToken() == ":") {
+        current = getNext();
+        return_type();
+        if (current.getToken() != ";")
+            parseError(current.getLineNum(), current.getValue());
+    }
 }
 
 void formal_args(void)
@@ -431,10 +419,10 @@ void formal_args(void)
     // <formal_args> -> ( <formal_arg_list> ) | e
 
     if (current.getToken() == "(") {
-        current.getNext();
+        current = getNext();
         formal_arg_list();
         if (current.getToken() == ")") {
-            current.getNext();
+            current = getNext();
         } else {
             parseError(current.getLineNum(), current.getValue());
         }
@@ -447,6 +435,7 @@ void formal_arg_list(void)
 
     formal_arg();
     while(current.getToken() == ",") {
+        current = getNext();
         formal_arg();
     }
 }
@@ -457,9 +446,9 @@ void formal_arg(void)
 
     call_by();
     if (current.getToken() == "IDENTIFIER") {
-        current.getNext();
+        current = getNext();
         if (current.getToken() == ":") {
-            current.getNext();
+            current = getNext();
             dcl_type();
         } else {
             parseError(current.getLineNum(), current.getValue());
@@ -473,7 +462,7 @@ void call_by(void)
 {
     // <call_by> -> VAR | e
     if (current.getToken() == "VAR") {
-        current.getNext();
+        current = getNext();
     }
 }
 
@@ -489,10 +478,10 @@ void actual_args(void)
     // <actual_args> -> ( <actual_arg_list> ) | e
 
     if (current.getToken() == "(") {
-        current.getNext();
+        current = getNext();
         actual_arg_list();
         if (current.getToken() == ")") {
-            current.getNext();
+            current = getNext();
         } else {
             parseError(current.getLineNum(), current.getValue());
         }
@@ -506,7 +495,7 @@ void actual_arg_list(void)
 
     actual_arg();
     while (current.getToken() == ",") {
-        current.getNext();
+        current = getNext();
         actual_arg();
     }
 }
@@ -523,7 +512,7 @@ void procedure_list(void)
     // <procedure_list> -> { <procedure> }*
 
     while (current.getToken() == "PROCEDURE") {
-        current.getNext();
+        current = getNext();
         procedure();
     }
 }
@@ -531,7 +520,6 @@ void procedure_list(void)
 void procedure(void)
 {
     // <procedure> -> <proc_head> <proc_body>
-
     proc_head();
     proc_body();
 }
@@ -542,9 +530,9 @@ void proc_head(void)
 
     /* REMEMBER THAT WE ALREADY GOBBLED UP "PROCEUDURE" */
     if (current.getToken() == "IDENTIFIER") {
-        current.getNext();
+        current = getNext();
         if (current.getToken() == ";") {
-            current.getNext();
+            current = getNext();
         } else {
             parseError(current.getLineNum(), current.getValue());
         }
@@ -556,13 +544,12 @@ void proc_head(void)
 void proc_body(void)
 {
     // <proc_body> -> <dcl_definitions> BEGIN <statement_list> END
-
     dcl_definitions();
     if (current.getToken() == "BEGIN") {
-        current.getNext();
+        current = getNext();
         statement_list();
         if (current.getToken() == "END") {
-            current.getNext();
+            current = getNext();
         } else {
             parseError(current.getLineNum(), current.getValue());
         }
@@ -596,9 +583,9 @@ void label(void)
     // <label> -> # NUMBER | e
 
     if (current.getToken() == "#") {
-        current.getNext();
+        current = getNext();
         if (current.getToken() == "NUMBER") {
-            current.getNext();
+            current = getNext();
         } else {
             parseError(current.getLineNum(), current.getValue());
         }
@@ -622,68 +609,73 @@ void exec_statement(void)
        | <next_statement>
        | <break_statement>
      */
-
+    map<string,int> cases =
+    {
+        {"READ", 0}, {"READLN", 1}, {"WRITE", 2}, {"WRITELN", 3},
+        {"IDENTIFIER", 4}, {"CALL", 5}, {"RETURN", 6}, {"GOTO", 7},
+        {";", 8}, {"DO", 9}, {"IF", 10}, {"WHILE", 11}, {"CASE", 12},
+        {"FOR", 13}, {"NEXT", 14}, {"BREAK", 15}
+    };
     // note: some cases do not gobble current lexeme since
     // there is an option in the applicable statement function
-    switch (current.getToken) {
-    case "READ":
+    switch (cases[current.getToken()]) {
+    case 0:
         read_statement();
         break;
-    case "READLN":
+    case 1:
         read_statement();
         break;
-    case "WRITE":
+    case 2:
         write_statement();
         break;
-    case "WRITELN":
+    case 3:
         write_statement();
         break;
-    case "IDENTIFIER":
-        current.getNext();
+    case 4:
         assignment_statement();
         break;
-    case "CALL":
-        current.getNext();
+    case 5:
+        current = getNext();
         call_statement();
         break;
-    case "RETURN":
-        current.getNext();
+    case 6:
+        current = getNext();
         return_statement();
         break;
-    case "GOTO":
-        current.getNext();
+    case 7:
+        current = getNext();
         goto_statement();
         break;
-    case ";":
-        current.getNext();
+    case 8:
+        current = getNext();
         empty_statement();
         break;
-    case "DO":
-        current.getNext();
+    case 9:
+        current = getNext();
         compound_statement();
         break;
-    case "IF":
-        current.getNext();
+    case 10:
+        current = getNext();
         if_statement();
         break;
-    case "WHILE":
-        current.getNext();
+    case 11:
+        current = getNext();
         while_statement();
         break;
-    case "CASE":
-        current.getNext();
+    case 12:
+        current = getNext();
         case_statement();
         break;
-    case "FOR":
-        current.getNext();
+    case 13:
+        current = getNext();
         for_statement();
         break;
-    case "NEXT":
-        current.getNext();
+    case 14:
+        current = getNext();
         next_statement();
         break;
-    case "BREAK":
-        current.getNext();
+    case 15:
+        current = getNext();
         break_statement();
         break;
     default:
@@ -699,18 +691,18 @@ void read_statement(void)
      */
 
     if (current.getToken() == "READ") {
-        current.getNext();
+        current = getNext();
         actual_args();
         if (current.getToken() == ";") {
-            current.getNext();
+            current = getNext();
         } else {
             parseError(current.getLineNum(), current.getValue());
         }
     } else { // safe to use else here?
-        current.getNext();
+        current = getNext();
         actual_args();
         if (current.getToken() == ";") {
-            current.getNext();
+            current = getNext();
         } else {
             parseError(current.getLineNum(), current.getValue());
         }
@@ -724,18 +716,18 @@ void write_statement(void)
      */
 
     if (current.getToken() == "WRITE") {
-        current.getNext();
+        current = getNext();
         actual_args();
         if (current.getToken() == ";") {
-            current.getNext();
+            current = getNext();
         } else {
             parseError(current.getLineNum(), current.getValue());
         }
     } else { // safe to use else here?
-        current.getNext();
+        current = getNext();
         actual_args();
         if (current.getToken() == ";") {
-            current.getNext();
+            current = getNext();
         } else {
             parseError(current.getLineNum(), current.getValue());
         }
@@ -748,15 +740,15 @@ void assignment_statement(void)
 
     lval(); // remember "IDENTIFIER"  gobbled!
     if (current.getToken() == ":=") {
-        current.getNext();
+        current = getNext();
         expression();
         if (current.getToken() == ";") {
-            current.getNext();
+            current = getNext();
         } else {
-            parseError(current.getLineNum(), current.getToken());
+            parseError(current.getLineNum(), current.getValue());
         }
     } else {
-        parseError(current.getLineNum(), current.getToken());
+        parseError(current.getLineNum(), current.getValue());
     }
 }
 
@@ -766,15 +758,15 @@ void call_statement(void)
 
     // already have CALL so...
     if (current.getToken() == "IDENTIFIER") {
-        current.getNext();
+        current = getNext();
         actual_args();
         if (current.getToken() == ";") {
-            current.getNext();
+            current = getNext();
         } else {
-            parseError(current.getLineNum(), current.getToken());
+            parseError(current.getLineNum(), current.getValue());
         }
     } else {
-        parseError(current.getLineNum(), current.getToken());
+        parseError(current.getLineNum(), current.getValue());
     }
 }
 
@@ -783,22 +775,22 @@ void return_statement(void)
     // <return_statement> -> RETURN [ <expression> ] ;
 
     // already have RETURN so...
-    if (current.getToken() == "[") {
-        current.getNext();
+    //if (current.getToken() == "[") {
+    //    current = getNext();
         expression();
-        if (current.getToken() == "]") {
-            current.getNext();
+        //if (current.getToken() == "]") {
+        //current = getNext();
             if (current.getToken() == ";") {
-                current.getNext();
+                current = getNext();
             } else {
-                parseError(current.getLineNum(), current.getToken());
+                parseError(current.getLineNum(), current.getValue());
             }
-        } else {
-            parseError(current.getLineNum(), current.getToken());
-        }
-    } else {
-        parseError(current.getLineNum(), current.getToken());
-    }
+            //} else {
+            //parseError(current.getLineNum(), current.getValue());
+            //}
+        //} else {
+        //parseError(current.getLineNum(), current.getValue());
+        //}
 }
 
 void goto_statement(void)
@@ -808,9 +800,9 @@ void goto_statement(void)
     // already have GOTO so...
     label();
     if (current.getToken() == ";")
-        current.getNext();
+        current = getNext();
     else
-        parseError(current.getLineNum(), current.getValue);
+        parseError(current.getLineNum(), current.getValue());
 }
 
 void empty_statement(void)
@@ -826,13 +818,13 @@ void compound_statement(void)
     // <compound_statement> -> DO ; <statement_list> END ;
 
     // already gobbled DO so...
-    if (current.getToken() = ";") {
-        current.getNext();
+    if (current.getToken() == ";") {
+        current = getNext();
         statement_list();
         if (current.getToken() == "END") {
-            current.getNext();
+            current = getNext();
             if (current.getToken() == ";") {
-                current.getNext();
+                current = getNext();
             } else {
                 parseError(current.getLineNum(), current.getValue());
             }
@@ -853,12 +845,12 @@ void if_statement(void)
 
     // already gobbled IF so...
     if (current.getToken() == "(") {
-        current.getNext();
+        current = getNext();
         comparison();
         if (current.getToken() == ")") {
-            current.getNext();
+            current = getNext();
             if (current.getToken() == "THEN") {
-                current.getNext();
+                current = getNext();
                 statement();
                 else_clause();
             } else {
@@ -877,7 +869,7 @@ void else_clause(void)
     // <else_clause> -> ELSE <statement> | e
 
     if (current.getToken() == "ELSE") {
-        current.getNext();
+        current = getNext();
         statement();
     }
 }
@@ -888,10 +880,10 @@ void while_statement(void)
 
     // already gobbled WHILE so...
     if (current.getToken() == "(") {
-        current.getNext();
+        current = getNext();
         comparison();
         if (current.getToken() == ")") {
-            current.getNext();
+            current = getNext();
             statement();
         } else {
             parseError(current.getLineNum(), current.getValue());
@@ -907,10 +899,10 @@ void case_statement(void)
 
     // already gobbled CASE so...
     if (current.getToken() == "(") {
-        current.getNext();
+        current = getNext();
         expression();
         if (current.getToken() == ")") {
-            current.getNext();
+            current = getNext();
             case_list();
         } else {
             parseError(current.getLineNum(), current.getValue());
@@ -931,9 +923,9 @@ void case_list(void)
         (current.getToken() == "NUMBER")) {
         unary();
         if (current.getToken() == "NUMBER") {
-            current.getNext();
+            current = getNext();
             if (current.getToken() == ":") {
-                current.getNext();
+                current = getNext();
                 statement();
                 case_list();
             } else {
@@ -942,8 +934,249 @@ void case_list(void)
         } else {
             parseError(current.getLineNum(), current.getValue());
         }
-    } else if (current.getToken() == "DEFAULT") {
-        current.getNext();
+    }
 
+    // Then obligatory DEFAULT
+    if (current.getToken() == "DEFAULT") {
+        current = getNext();
+        if (current.getToken() == ":") {
+            current = getNext();
+            statement();
+        } else {
+            parseError(current.getLineNum(), current.getValue());
+        }
+    } else {
+        parseError(current.getLineNum(), current.getValue());
+    }
+}
+
+void for_statement(void)
+{
+    /* <for_statement> -> FOR IDENTIFIER := <expression>
+       { TO | DOWNTO } <expression> <statement>
+     */
+    // already got FOR so...
+    if (current.getToken() == "IDENTIFIER") {
+        current = getNext();
+        if (current.getToken() == ":=") {
+            current = getNext();
+            expression();
+            // next two cases separate for compiling
+            if (current.getToken() == "TO") {
+                current = getNext();
+                expression();
+                statement();
+            } else if (current.getToken() == "DOWNTO") {
+                current = getNext();
+                expression();
+                statement();
+            } else {
+                parseError(current.getLineNum(), current.getValue());
+            }
+        } else {
+            parseError(current.getLineNum(), current.getValue());
+        }
+    } else {
+        parseError(current.getLineNum(), current.getValue());
+    }
+}
+
+void next_statement(void)
+{
+    // <next_statement> -> NEXT ;
+
+    // already gobbled NEXT so...
+    if (current.getToken() == ";") {
+        current = getNext();
+    } else {
+        parseError(current.getLineNum(), current.getValue());
+    }
+}
+
+void break_statement(void)
+{
+    // <break_statement> -> BREAK ;
+
+    // already gobbled BREAK so...
+    if (current.getToken() == ";") {
+        current = getNext();
+    } else {
+        parseError(current.getLineNum(), current.getValue());
+    }
+}
+
+void expression(void)
+{
+    // <expression> -> <comparison>
+
+    comparison();
+}
+
+void comparison(void)
+{
+    // <comparison> -> <simple_expression> { <compop> <simple_expression> }*
+    simple_expression();
+    // maybe change to while loop?
+    if ((current.getToken() == "=") ||
+        (current.getToken() == "<>") ||
+        (current.getToken() == ">") ||
+        (current.getToken() == "<") ||
+        (current.getToken() == ">=") ||
+        (current.getToken() == "<=")) {
+        compop(); // don't gobble!
+        comparison();
+    }
+}
+
+void simple_expression(void)
+{
+    // <simple_expression> -> <unary> <term> { <addop> <term> }*
+
+    unary();
+    term();
+    // seems like it could give an issue later...
+    while ((current.getToken() == "+") || (current.getToken() == "-") ||
+           (current.getToken() == "OR")) {
+        addop();
+        term();
+    }
+}
+
+void term(void)
+{
+    // <term> -> <factor> { <mulop> <factor> }*
+
+    factor();
+    while ((current.getToken() == "*") || (current.getToken() == "/") ||
+           (current.getToken() == "%") || (current.getToken() == "AND")) {
+        mulop();
+        factor();
+    }
+}
+
+void factor(void)
+{
+    /* <factor> -> <const> | <func_ref> | <lval> | ( <expression> ) | NOT <factor> */
+
+    if ((current.getToken() == "NUMBER") || (current.getToken() == "DECIMAL") ||
+        (current.getToken() == "CSTRING")) {
+        konst();
+    } else if (current.getToken() == "IDENTIFIER") {
+        // <func_ref> | <lval>
+        current = getNext();
+        if (current.getToken() == "(") {
+            func_ref();
+        } else if ((current.getToken() == "[") || (current.getToken() == ".")) {
+            qualifier();
+        } // \epsilon in both cases
+    } else if (current.getToken() == "(") {
+        current = getNext();
+        expression();
+        if (current.getToken() == ")") {
+            current = getNext();
+        } else {
+            parseError(current.getLineNum(), current.getValue());
+        }
+    } else if (current.getToken() == "NOT") {
+        current = getNext();
+        factor();
+    } else {
+        parseError(current.getLineNum(), current.getValue());
+    }
+}
+
+void compop(void)
+{
+    //<compop> -> = | <> | > | < | >= | <=
+
+    if ((current.getToken() == "=") ||
+        (current.getToken() == "<>") ||
+        (current.getToken() == ">") ||
+        (current.getToken() == "<") ||
+        (current.getToken() == ">=") ||
+        (current.getToken() == "<=")) {
+        current = getNext();
+    } else {
+        parseError(current.getLineNum(), current.getValue());
+    }
+}
+
+void addop(void)
+{
+    // <addop> -> + | - | OR
+
+    if ((current.getToken() == "+") || (current.getToken() == "-") ||
+        (current.getToken() == "OR")) {
+        current = getNext();
+    } else {
+        parseError(current.getLineNum(), current.getValue());
+    }
+}
+
+void mulop(void)
+{
+    // <mulop> -> * | / | % | AND
+
+    if ((current.getToken() == "*") || (current.getToken() == "/") ||
+        (current.getToken() == "%") || (current.getToken() == "AND")) {
+        current = getNext();
+    } else {
+        parseError(current.getLineNum(), current.getValue());
+    }
+}
+
+void unary(void)
+{
+    // <unary> -> + | - | e
+
+    if ((current.getToken() == "+") || (current.getToken() == "-")) {
+        current = getNext();
+    }
+}
+
+void lval(void)
+{
+    // <lval> -> IDENTIFIER <qualifier>
+
+    if (current.getToken() == "IDENTIFIER") {
+        current = getNext();
+        qualifier();
+    } else {
+        parseError(current.getLineNum(), current.getValue());
+    }
+}
+
+void func_ref(void) {
+    // <func_ref> -> IDENTIFIER <actual_args>
+
+    // already gobbled IDENTIFIER so...
+    actual_args();
+}
+
+
+void qualifier(void)
+{
+    /* <qualifier> -> [ <expression> ] <qualifier>
+       | . IDENTIFIER <qualifier>
+       | e
+     */
+
+    if (current.getToken() == "[") {
+        current = getNext();
+        expression();
+        if (current.getToken() == "]") {
+            current = getNext();
+            qualifier();
+        } else {
+            parseError(current.getLineNum(), current.getValue());
+        }
+    } else if (current.getToken() == ".") {
+        current = getNext();
+        if (current.getToken() == "IDENTIFIER") {
+            current = getNext();
+            qualifier();
+        } else {
+            parseError(current.getLineNum(), current.getValue());
+        }
     }
 }
