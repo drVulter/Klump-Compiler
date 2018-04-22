@@ -225,6 +225,7 @@ void struct_type(void)
     // <struct_type> -> <array_type> | <record_type>
 
     if (current.getToken() == "ARRAY") {
+        current = getNext();
         array_type();
     } else if (current.getToken() == "RECORD") {
         current = getNext();
@@ -241,7 +242,7 @@ void array_type(void)
     // already have "ARRAY" so...
     if (current.getToken() == "[") {
         current = getNext();
-        if (current.getToken() == "NUMBER") {
+        if ((current.getToken() == "NUMBER") || (current.getToken() == "IDENTIFIER")) {
             current = getNext();
             if (current.getToken() == "]") {
                 current = getNext();
