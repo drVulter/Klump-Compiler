@@ -17,5 +17,6 @@ int main(void)
     currentLex = getNext();
     pal_program(currentLex);
     cout << "Success! no parser errors!\n";
+    cout << "Feelin' fine\n";
     return 0;
 }

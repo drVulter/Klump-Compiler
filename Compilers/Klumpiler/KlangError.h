@@ -25,4 +25,10 @@ void parseError(int lineNum, string s)
 	 << "\'.\n";
     exit(EXIT_FAILURE);
 }
+
+void semanticError(int lineNum, string s)
+{
+    cout << "klang error, line " << lineNum << "." << s << endl;
+    exit(EXIT_FAILURE);
+}
 #endif

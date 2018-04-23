@@ -1,6 +1,6 @@
 /*
   Compiler for the PAL subset of the KLUMP programming language.
-  Code emitting function definitions can be found in PalCompiler.h
+  Code emitting function definitions can be found in KlumpCompiler.h
 */
 
 
@@ -10,6 +10,7 @@
 #include "Scanner.h"
 #include "KlangError.h"
 #include "KlumpCompiler.h"
+#include "Tables.h"
 #include <string>
 #include <stack>
 #include <set>
@@ -20,11 +21,11 @@ void klump_program(Lexeme c);
 void global_definitions(void);
 void const_definitions(void);
 void const_list(void);
-void konst(void); // corresponds to <const> in grammar
+void konst(string id); // corresponds to <const> in grammar
 void type_definitions(void);
 void type_list(void);
-void struct_type(void);
-void array_type(void);
+void struct_type(string name);
+void array_type(string name);
 void record_type(void);
 void fld_list(void);
 void dcl_definitions(void);
@@ -86,8 +87,10 @@ using namespace std;
 
 Lexeme current; // lexeme currently being examined
 
-// store the variable names
-stack<string> variables;
+/* Tables */
+set<GSTMember> GST;
+set<GLTMember> GLT;
+set<GTTMember> GTT;
 
 // Different literals for beginning a <statement>
 set<string> beginStatement =
@@ -103,6 +106,22 @@ int main(void)
     startScanner();
     // Start scanning
     current = getNext();
+    // initialize Global Type Table, need this?
+    GTTMember intType;
+    intType.typeID = "INT";
+    intType.size = 4;
+    intType.structure = "ATOMIC";
+    GTT.insert(intType);
+    GTTMember realType;
+    realType.typeID = "REAL";
+    realType.size = 8;
+    realType.structure = "ATOMIC";
+    GTT.insert(realType);
+    GTTMember strType; // size???
+    strType.typeID = "STRING";
+    strType.structure = "ATOMIC";
+    GTT.insert(strType);
+    
     // Start parsing/code emitting
     klump_program(current);
 
@@ -117,9 +136,22 @@ void klump_program(Lexeme c)
     // <klump_program> -> <global_definitions> <procedure_list> .
     global_definitions();
     procedure_list();
+    for (const GSTMember &member : GST) {
+        if (member.isConst)
+            cout << member.id << " " << member.type << " " << member.value << endl;
+    }
+    cout << "types" << endl;
+    for (const GTTMember &member : GTT) {
+        if (member.structure == "ARRAY")
+            cout << member.typeID << " " << member.size << " " << member.structure
+                 << " " << member.arrayInfo.range << " " << member.arrayInfo.type << endl;
+        else
+            cout << member.typeID << " " << member.size << " " << member.structure
+                 << endl;
+    }
     // write .data and .bss sections
     //emitBss(variables);
-    //emitData();
+    emitData(GST);
     //end_pal();
     // make sure we have "." at the end
     //if (current.getToken() != ".")
@@ -157,10 +189,11 @@ void const_list(void)
 {
     // <const_list> -> { IDENTIFIER : <const> ; }+
         if (current.getToken() == "IDENTIFIER") {
+            string konstID = current.getValue();
             current = getNext();
             if (current.getToken() == ":") {
                 current = getNext();
-                konst();
+                konst(konstID);
                 if (current.getToken() == ";") {
                     current = getNext();
                         if (current.getToken() == "IDENTIFIER") {
@@ -177,17 +210,32 @@ void const_list(void)
             parseError(current.getLineNum(),current.getValue());
         }
 }
-void konst(void)
+void konst(string id)
 {
     // <const> -> NUMBER | DECIMAL | CSTRING
-    if ((current.getToken() == "NUMBER")
-        || (current.getToken() == "DECIMAL")
-        || (current.getToken() == "CSTRING")) {
+
+    GSTMember newKonst;
+    newKonst.id = id;
+    newKonst.isConst = true;
+    if (current.getToken() == "NUMBER") {
+        newKonst.type = "INT";
+        newKonst.value = current.getValue();
+        current = getNext();
+    } else if (current.getToken() == "DECIMAL") {
+        newKonst.type = "REAL";
+        newKonst.value = current.getValue();
+        current = getNext();
+    } else if (current.getToken() == "CSTRING") {
+        newKonst.type = "STRING";
+        newKonst.value = current.getValue();
         current = getNext();
     } else {
         parseError(current.getLineNum(), current.getValue());
     }
+    GST.insert(newKonst);
+    
 }
+
 void type_definitions()
 {
     // <type_definitions> -> TYPE <type_list> | e
@@ -201,10 +249,11 @@ void type_list()
 {
     // <type_list> -> { IDENTIFIER : <structure_type> ; }+
         if (current.getToken() == "IDENTIFIER") {
+            string typeName = current.getValue();
             current = getNext();
             if (current.getToken() == ":") {
                 current = getNext();
-                struct_type();
+                struct_type(typeName);
                 if (current.getToken() == ";") {
                     current = getNext();
                         if (current.getToken() == "IDENTIFIER")
@@ -220,13 +269,13 @@ void type_list()
         }
 }
 
-void struct_type(void)
+void struct_type(string name)
 {
     // <struct_type> -> <array_type> | <record_type>
 
     if (current.getToken() == "ARRAY") {
         current = getNext();
-        array_type();
+        array_type(name);
     } else if (current.getToken() == "RECORD") {
         current = getNext();
         record_type();
@@ -235,32 +284,78 @@ void struct_type(void)
     }
 }
 
-void array_type(void)
+void array_type(string name)
 {
     // <array_type> -> ARRAY [ NUMBER ] OF <dcl_type>
 
     // already have "ARRAY" so...
+    GTTMember array;
+    arrInfo info;
+    int range = 0;
+    string type = "";
+    array.typeID = name;
+    array.structure = "ARRAY";
     if (current.getToken() == "[") {
         current = getNext();
-        if ((current.getToken() == "NUMBER") || (current.getToken() == "IDENTIFIER")) {
+        if (current.getToken() == "NUMBER") {
+            range = stoi(current.getValue());
             current = getNext();
             if (current.getToken() == "]") {
                 current = getNext();
                 if (current.getToken() == "OF") {
                     current = getNext();
+                    type = current.getValue();
                     dcl_type();
+                    info.range = range; // success!
+                    info.type = type;
                 } else {
                     parseError(current.getLineNum(), current.getValue());
                 }
             } else {
                 parseError(current.getLineNum(), current.getValue());
             }
-        } else {
+        } else if (current.getToken() == "IDENTIFIER") { // case where RANGE is a variable
+            string rangeStr = current.getValue(); // hold onto variable name
+            current = getNext();
+            if (current.getToken() == "]") {
+                current = getNext();
+                if (current.getToken() == "OF") {
+                    current = getNext();
+                    type = current.getValue();
+                    dcl_type();
+                    GSTMember temp;
+                    temp.id = rangeStr;
+                    set<GSTMember>:: iterator iter = GST.find(temp);
+                    if (iter != GST.end()) {
+                        GSTMember temp = *iter;
+                        range = stoi(temp.value);
+                        info.range = range;
+                        info.type = type;
+                    } else
+                        semanticError(current.getLineNum(), "");
+                } else {
+                    parseError(current.getLineNum(), current.getValue());
+                }
+            } else {
+                parseError(current.getLineNum(), current.getValue());
+            }
+        }
+        else {
             parseError(current.getLineNum(), current.getValue());
         }
     } else {
         parseError(current.getLineNum(), current.getValue());
     }
+    // everything successful so add to global type table!
+    // first determine size
+    set<GTTMember>:: iterator it;
+    GTTMember tempType;
+    tempType.typeID = type;
+    it = GTT.find(tempType);
+    tempType = *it;
+    array.size = tempType.size * range;
+    array.arrayInfo = info;
+    GTT.insert(array);
 }
 
 void record_type(void)
@@ -331,7 +426,7 @@ void dcl_list(void)
 {
   // dcl_list -> { IDENTIFIER : <dcl_type> ; }+
         if (current.getToken() == "IDENTIFIER") {
-            variables.push(current.getValue());
+            //variables.push(current.getValue());
             current = getNext();
             if (current.getToken() == ":") {
                 current = getNext();
@@ -1061,7 +1156,8 @@ void factor(void)
 
     if ((current.getToken() == "NUMBER") || (current.getToken() == "DECIMAL") ||
         (current.getToken() == "CSTRING")) {
-        konst();
+        //konst();
+        current = getNext();
     } else if (current.getToken() == "IDENTIFIER") {
         // <func_ref> | <lval>
         current = getNext();

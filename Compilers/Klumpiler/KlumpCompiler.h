@@ -10,8 +10,11 @@
 #include <cstdlib>
 #include "Scanner.h"
 #include "KlangError.h"
+#include "Tables.h"
 #include <string>
 #include <stack>
+#include <set>
+#include <map>
 
 // Prototypes
 
@@ -26,9 +29,16 @@ void emitAddop(string opCode);
 void emitNumber(string num); 
 void emitVar(string var);
 void emitBss(stack<string> &s);
-void emitData(void); // takes in nothing for now...
+void emitData(set<GSTMember> &consts); // takes in nothing for now...
 
 using namespace std;
+
+/* Map for KLUMP type to size */
+
+map<string, string> sizes =
+{
+    {"INT", "dw"}, {"REAL", "dq"}, {"STRING", "db"}
+};
 
 // emits an assembly language comment
 void comment(string s)
@@ -194,7 +204,7 @@ void emitAssignment(string var)
     cout << "mov [" << var << "], eax\n";
 }
 
-void emitBss(stack<string> &s)
+void emitBss(set<GSTMember> &vars)
 {
     /*
       section .bss
@@ -204,23 +214,31 @@ void emitBss(stack<string> &s)
     blankLine();
     cout << "section .bss\n";
 
-    while (!s.empty()) {
-        cout << s.top() << ": " << "resb 4\n";
-        s.pop();
+    for (GSTMember member : vars) {
+
     }
 }
 
-void emitData(void)
+void emitData(set<GSTMember> &consts)
 {
     /*
-      No constants yet so simple.
-
+      Constant data for KLUMP
+      still need various predefined strings
       str: db "%d", 10, 0
     */
 
     blankLine();
     cout << "section .data\n";
-    cout << "str: db \"%d\", 10, 0\n";
+    cout << "intStr: db \"%d\", 10, 0\n";
+    cout << "realStr: db \"%f\", 10, 0\n";
+    cout << "strStr: db \"%s\", 10, 0\n";
+    for (GSTMember konst : consts) {
+        if (konst.isConst) {
+            string sizeStr; // how big?
+            cout << konst.id << ": " << sizes[konst.type] << " " <<
+               konst.value << endl;
+        }
+    }
 }
 
 // end guard

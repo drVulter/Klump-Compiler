@@ -35,7 +35,8 @@ using namespace std;
 
 Lexeme current;
 // store the variable names
-stack<string> variables; 
+stack<string> variables;
+
 
 int main(void)
 {

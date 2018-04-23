@@ -1,7 +1,7 @@
 dcl
   a : int;
   b : int;
-
+c : real;
 begin
   a := 3;
   b := 5*a - 2;

@@ -10,3 +10,4 @@ begin
   writeln (b);
 writeln(c);
 end.
+something
