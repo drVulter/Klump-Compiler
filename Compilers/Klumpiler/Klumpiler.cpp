@@ -28,8 +28,8 @@ void struct_type(string name);
 void array_type(string name);
 void record_type(void);
 void fld_list(void);
-void dcl_definitions(void);
-void dcl_list(void);
+void dcl_definitions(bool isGlobal);
+void dcl_list(bool isGlobal);
 void dcl_type(void);
 void atomic_type(void);
 void proc_declarations(void);
@@ -82,27 +82,28 @@ void unary(void);
 void lval(void);
 void func_ref(void);
 void qualifier(void);
-// end_klump(void); 
+// end_klump(void);
 using namespace std;
 
 Lexeme current; // lexeme currently being examined
 
 /* Tables */
-set<GSTMember> GST;
-set<GLTMember> GLT;
-set<GTTMember> GTT;
+set<GSTMember> GST; // Global symbol table
+set<GLTMember> GLT; // Global literal table
+set<GTTMember> GTT; // Global type table
+set<LSTMember> LST; // Local symbol table
 
 // Different literals for beginning a <statement>
 set<string> beginStatement =
 {
     "#", "READ", "READLN", "WRITE", "WRITELN",
     "IDENTIFIER", "CALL", "RETURN", "GOTO", ";",
-    "DO", "IF", "CASE", "FOR", "NEXT", "BREAK"
+    "DO", "IF", "WHILE", "CASE", "FOR", "NEXT", "BREAK"
 };
 
 int main(void)
 {
-    // Start the scanner 
+    // Start the scanner
     startScanner();
     // Start scanning
     current = getNext();
@@ -121,7 +122,7 @@ int main(void)
     strType.typeID = "STRING";
     strType.structure = "ATOMIC";
     GTT.insert(strType);
-    
+
     // Start parsing/code emitting
     klump_program(current);
 
@@ -134,13 +135,18 @@ void klump_program(Lexeme c)
 {
     current = c;
     // <klump_program> -> <global_definitions> <procedure_list> .
+    front(); // emit front code
     global_definitions();
     procedure_list();
+    back(); // wrap up main
+    /*
     for (const GSTMember &member : GST) {
         if (member.isConst)
-            cout << member.id << " " << member.type << " " << member.value << endl;
+            cout << member.id << " " << member.type << " " << member.value << " " << endl;
+        else
+            cout << member.id << " " << member.type << endl;
     }
-    cout << "types" << endl;
+    cout << "\ntypes" << endl;
     for (const GTTMember &member : GTT) {
         if (member.structure == "ARRAY")
             cout << member.typeID << " " << member.size << " " << member.structure
@@ -149,8 +155,13 @@ void klump_program(Lexeme c)
             cout << member.typeID << " " << member.size << " " << member.structure
                  << endl;
     }
+    cout << "\nLocal variables" << endl;
+    for (const LSTMember &member : LST) {
+        cout << member.id << " " << member.type << " " << member.offset << " " << member.callbyVAR << endl;
+    }
+    */
     // write .data and .bss sections
-    //emitBss(variables);
+    emitBss(GST, GTT); // need GTT for sizes of variables
     emitData(GST);
     //end_pal();
     // make sure we have "." at the end
@@ -168,7 +179,7 @@ void global_definitions(void)
         current = getNext(); // need these after each one?
         const_definitions();
         type_definitions();
-        dcl_definitions();
+        dcl_definitions(true);
         proc_declarations();
     }
     // otherwise empty
@@ -233,7 +244,7 @@ void konst(string id)
         parseError(current.getLineNum(), current.getValue());
     }
     GST.insert(newKonst);
-    
+
 }
 
 void type_definitions()
@@ -355,7 +366,7 @@ void array_type(string name)
     tempType = *it;
     array.size = tempType.size * range;
     array.arrayInfo = info;
-    GTT.insert(array);
+    GTT.insert(array); // add it to type table
 }
 
 void record_type(void)
@@ -368,7 +379,7 @@ void record_type(void)
     } else {
         parseError(current.getLineNum(), current.getValue());
     }
-        
+
 }
 
 void fld_list(void)
@@ -406,7 +417,7 @@ void fld_list(void)
         }
         */
 }
-void dcl_definitions(void)
+void dcl_definitions(bool isGlobal)
 {
     // dcl_definitions -> DCL dcl_list | e
     // get the first lexeme
@@ -414,7 +425,7 @@ void dcl_definitions(void)
 
     if (current.getToken() == "DCL") {
         current = getNext();
-        dcl_list();
+        dcl_list(isGlobal);
     } else {
         //parseError(current.getLineNum(), current.getValue());
     }
@@ -422,23 +433,43 @@ void dcl_definitions(void)
     //procedure();
 }
 
-void dcl_list(void)
+void dcl_list(bool isGlobal)
 {
   // dcl_list -> { IDENTIFIER : <dcl_type> ; }+
-        if (current.getToken() == "IDENTIFIER") {
-            //variables.push(current.getValue());
+
+    int offset = 0; // to be used for local variables
+    while (current.getToken() == "IDENTIFIER") {
+        string varName = current.getValue(); // save id
+        //cout << varName << endl;
+        current = getNext();
+        if (current.getToken() == ":") {
             current = getNext();
-            if (current.getToken() == ":") {
+            string varType = current.getValue();
+            //cout << varType << endl;
+            dcl_type();
+            if (current.getToken() == ";") {
                 current = getNext();
-                dcl_type();
-                if (current.getToken() == ";") {
-                    current = getNext();
-                        if (current.getToken() == "IDENTIFIER") {
-                            // play again
-                            dcl_list();
-                        }
+                // success, so add to table!
+                if (isGlobal) {
+                    GSTMember var;
+                    var.id = varName;
+                    var.type = varType;
+                    var.isConst = false;
+                    GST.insert(var);
                 } else {
-                    parseError(current.getLineNum(), current.getValue());
+                    LSTMember var;
+                    var.id = varName;
+                    var.type = varType;
+                    // determine size for offset
+                    GTTMember tempType;
+                    set<GTTMember>:: iterator it;
+                    tempType.typeID = varType;
+                    it = GTT.find(tempType);
+                    tempType = *it;
+                    offset += tempType.size;
+                    var.offset = to_string(offset);
+                    var.callbyVAR = true; // default
+                    LST.insert(var);
                 }
             } else {
                 parseError(current.getLineNum(), current.getValue());
@@ -446,12 +477,13 @@ void dcl_list(void)
         } else {
             parseError(current.getLineNum(), current.getValue());
         }
+    }
 }
 
 void dcl_type(void)
 {
     // <dcl_type> -> <atomic_type> | IDENTIFIER
-    
+
     if (current.getToken() == "IDENTIFIER")
         current = getNext();
     else
@@ -487,9 +519,8 @@ void signature_list(void)
     if (current.getToken() == "IDENTIFIER") {
         current = getNext();
         proc_signature();
-        current = getNext();
         if (current.getToken() == ";") {
-            // go again 
+            // go again
             current = getNext();
             signature_list();
         }
@@ -522,7 +553,7 @@ void formal_args(void)
         } else {
             parseError(current.getLineNum(), current.getValue());
         }
-    } 
+    }
 }
 
 void formal_arg_list(void)
@@ -565,7 +596,7 @@ void call_by(void)
 void return_type(void)
 {
     // <return_type> -> <atomic_type> | e
-    
+
     atomic_type();
 }
 
@@ -606,9 +637,10 @@ void actual_arg(void)
 void procedure_list(void)
 {
     // <procedure_list> -> { <procedure> }*
-
+    //cout << current.getToken() << endl;
     while (current.getToken() == "PROCEDURE") {
         current = getNext();
+        //cout << "trigger" << endl;
         procedure();
     }
 }
@@ -640,7 +672,7 @@ void proc_head(void)
 void proc_body(void)
 {
     // <proc_body> -> <dcl_definitions> BEGIN <statement_list> END
-    dcl_definitions();
+    dcl_definitions(false); // not global variables
     if (current.getToken() == "BEGIN") {
         current = getNext();
         statement_list();

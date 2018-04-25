@@ -17,7 +17,8 @@
 #include <map>
 
 // Prototypes
-
+void emitLine(string label, string opcode, string operands, string comment);
+void emitNewLine(void);
 void blankLine(void);
 void comment(string s);
 void front(void);
@@ -28,8 +29,8 @@ void emitMulop(string opCode);
 void emitAddop(string opCode);
 void emitNumber(string num); 
 void emitVar(string var);
-void emitBss(stack<string> &s);
-void emitData(set<GSTMember> &consts); // takes in nothing for now...
+void emitBss(set<GSTMember> &vars, set<GTTMember> &types);
+void emitData(set<GSTMember> &consts); 
 
 using namespace std;
 
@@ -39,7 +40,34 @@ map<string, string> sizes =
 {
     {"INT", "dw"}, {"REAL", "dq"}, {"STRING", "db"}
 };
+// emit a line of assembly language
+void emitLine(string label, string opcode, string operands, string comment)
+{
+    /*
+      General Format:
+      <label> <opcode> <operands> ; <comment>
+     */
+    if (label != "")
+        cout << label + ": ";
+    else
+        cout << "\t";
+    if (opcode != "")
+        cout <<  opcode + " ";
+    else
+        cout << " ";
+    if (operands != "")
+        cout <<  operands + " ";
+    else
+        cout <<  " ";
+    if (comment != "")
+        cout << "\t ; " + comment;
+    cout << endl;
+}
 
+void emitNewLine(void)
+{
+    
+}
 // emits an assembly language comment
 void comment(string s)
 {
@@ -66,11 +94,14 @@ void front(void)
      */
 
     // possibly move these to separate function??
+    comment("This was made by a machine!");
+    blankLine();
     cout << "global _main\n";
     cout << "extern _printf\n";
     blankLine();
+    comment("TEXT Section");
     cout << "section .text\n";
-    cout << "_main:\n";
+    emitLine("_main", "", "", "");
     /* Don't need stack stuff? */
     //comment("Set up stack frame");
     //cout << "push ebp\n";
@@ -87,10 +118,11 @@ void back(void)
       int 0x80
      */
     comment("Exit");
-    cout << "push dword 0\n";
-    cout << "mov eax, 0x1\n";
-    cout << "sub esp, 4\n";
-    cout << "int 0x80\n";
+    emitLine("_exit_main", "", "", "");
+    emitLine("", "push", "dword 0", "");
+    emitLine("", "mov", "eax, 0x1", "");
+    emitLine("", "sub", "esp, 4", "");
+    emitLine("", "int", "0x80", "Make exit call");
 }
 
 void emitWriteStatement(Lexeme l)
@@ -204,7 +236,7 @@ void emitAssignment(string var)
     cout << "mov [" << var << "], eax\n";
 }
 
-void emitBss(set<GSTMember> &vars)
+void emitBss(set<GSTMember> &vars, set<GTTMember> &types)
 {
     /*
       section .bss
@@ -214,8 +246,18 @@ void emitBss(set<GSTMember> &vars)
     blankLine();
     cout << "section .bss\n";
 
-    for (GSTMember member : vars) {
-
+    for (GSTMember var : vars) {
+        if (!var.isConst) {
+            GTTMember tempType; tempType.typeID = var.type; // dummy for searching
+            set<GTTMember>:: iterator it = types.find(tempType);
+            if (it != types.end()) { // cover yourself!
+                tempType = *it;
+                cout << "\t" << var.id << ": resb " <<
+                    tempType.size << endl;
+            } else {
+                // something? some kinda error?
+            }
+        }
     }
 }
 
@@ -229,13 +271,13 @@ void emitData(set<GSTMember> &consts)
 
     blankLine();
     cout << "section .data\n";
-    cout << "intStr: db \"%d\", 10, 0\n";
-    cout << "realStr: db \"%f\", 10, 0\n";
-    cout << "strStr: db \"%s\", 10, 0\n";
+    cout << "\tintStr: db \"%d\", 10, 0\n";
+    cout << "\trealStr: db \"%f\", 10, 0\n";
+    cout << "\tstrStr: db \"%s\", 10, 0\n";
     for (GSTMember konst : consts) {
         if (konst.isConst) {
             string sizeStr; // how big?
-            cout << konst.id << ": " << sizes[konst.type] << " " <<
+            cout << "\t" << konst.id << ": " << sizes[konst.type] << " " <<
                konst.value << endl;
         }
     }

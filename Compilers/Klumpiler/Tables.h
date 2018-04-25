@@ -65,8 +65,9 @@ struct LSTMember
 {
     string id;
     string type;
-    string offset; // int?
+    string offset; // depends on size
     bool callbyVAR; // call by VAR or VAL 
+    bool operator < (const LSTMember &other) const { return id < other.id; }
 };
 
 /* Entry in LOCAL LABEL TABLE */

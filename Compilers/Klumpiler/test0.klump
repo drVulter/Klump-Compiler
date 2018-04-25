@@ -9,6 +9,8 @@ global
     type
     myArr : array [10] of real;
     coolerArr : array [10] of myArr;
+    dcl
+    y : real;
 
 procedure main;
 
