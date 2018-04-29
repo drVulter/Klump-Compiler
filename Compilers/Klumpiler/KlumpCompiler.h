@@ -23,14 +23,16 @@ void blankLine(void);
 void comment(string s);
 void front(void);
 void back(void);
+void emitLabel(LLTMember label);
+void emitGoto(LLTMember label);
 void emitWriteStatement(void);
 void emitAssingnment(string var);
 void emitMulop(string opCode);
 void emitAddop(string opCode);
 void emitNumber(string num); 
-void emitVar(string var);
+void emitVar(string var, string type);
 void emitBss(set<GSTMember> &vars, set<GTTMember> &types);
-void emitData(set<GSTMember> &consts); 
+void emitData(set<GSTMember> &consts, set<GLTMember> &literals); 
 
 using namespace std;
 
@@ -40,6 +42,14 @@ map<string, string> sizes =
 {
     {"INT", "dw"}, {"REAL", "dq"}, {"STRING", "db"}
 };
+
+// Make a new internal label
+string makeLabel(void)
+{
+    static int count = 0; // label count, STATIC!!!
+    string strCount = to_string(count++); // increase the count
+    return "_L_" + strCount + "_";
+}
 // emit a line of assembly language
 void emitLine(string label, string opcode, string operands, string comment)
 {
@@ -125,6 +135,27 @@ void back(void)
     emitLine("", "int", "0x80", "Make exit call");
 }
 
+/* ********************** STATEMENTS ********************** */
+
+void emitLabel(LLTMember label)
+{
+    /*
+      Assembly label
+      <label>: nop
+     */
+
+    emitLine(label.intLabel, "nop", "", "");
+}
+
+void emitGoto(LLTMember label)
+{
+    /*
+      Assembly goto
+      jmp label
+     */
+    emitLine("", "jmp", label.intLabel, ""); 
+}
+
 void emitWriteStatement(Lexeme l)
 {
     /*
@@ -169,15 +200,21 @@ void emitNumber(string num)
     cout << "push " << num << "\n";
 }
 
-void emitVar(string var)
+void emitVar(string var, string type)
 {
     /*
       pushes a variable operand onto the stack
 
-      push dword [<var]
+      push dword [<var>]
     */
-    comment("Emitting an identifier.");
-    cout << "push dword [" << var << "]\n";
+    string typeStr;
+    if (type == "INT") {
+        typeStr = "dword";
+    } else if (type == "REAL") {
+        typeStr = "qword";
+    }
+    // push this var to the stack
+    emitLine("", "push " + typeStr, "[" + var + "]", "Emitting a variable");
 
 }
 
@@ -236,6 +273,7 @@ void emitAssignment(string var)
     cout << "mov [" << var << "], eax\n";
 }
 
+/* ******************************************************** */
 void emitBss(set<GSTMember> &vars, set<GTTMember> &types)
 {
     /*
@@ -261,7 +299,7 @@ void emitBss(set<GSTMember> &vars, set<GTTMember> &types)
     }
 }
 
-void emitData(set<GSTMember> &consts)
+void emitData(set<GSTMember> &consts, set<GLTMember> &literals)
 {
     /*
       Constant data for KLUMP
@@ -274,12 +312,18 @@ void emitData(set<GSTMember> &consts)
     cout << "\tintStr: db \"%d\", 10, 0\n";
     cout << "\trealStr: db \"%f\", 10, 0\n";
     cout << "\tstrStr: db \"%s\", 10, 0\n";
+    // emit the constants
     for (GSTMember konst : consts) {
         if (konst.isConst) {
-            string sizeStr; // how big?
+            //string sizeStr; // how big?
             cout << "\t" << konst.id << ": " << sizes[konst.type] << " " <<
                konst.value << endl;
         }
+    }
+    // now emit the literals
+    for (GLTMember literal : literals) {
+        cout << "\t" << literal.label << ": " << sizes[literal.type] << " " <<
+            literal.value << endl;
     }
 }
 

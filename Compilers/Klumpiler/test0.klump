@@ -18,7 +18,9 @@ procedure main;
             x : int;
 
 begin { main }
-
+    #1;
+    x := r + 4;
+    x := blah;
 end {main}
 
 .

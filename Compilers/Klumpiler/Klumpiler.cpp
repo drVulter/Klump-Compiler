@@ -17,6 +17,7 @@
 #include <map>
 
 //  add prototypes
+void initializeTables(void);
 void klump_program(Lexeme c);
 void global_definitions(void);
 void const_definitions(void);
@@ -49,7 +50,7 @@ void proc_head(void);
 void proc_body(void);
 void statement_list(void);
 void statement(void);
-void label(void);
+void label(bool fromGoto);
 void exec_statement(void);
 void read_statement(void);
 void write_statement(void);
@@ -92,6 +93,7 @@ set<GSTMember> GST; // Global symbol table
 set<GLTMember> GLT; // Global literal table
 set<GTTMember> GTT; // Global type table
 set<LSTMember> LST; // Local symbol table
+set<LLTMember> LLT; // Local label table
 
 // Different literals for beginning a <statement>
 set<string> beginStatement =
@@ -107,6 +109,15 @@ int main(void)
     startScanner();
     // Start scanning
     current = getNext();
+    initializeTables();
+    // Start parsing/code emitting
+    klump_program(current);
+
+    return 0;
+}
+
+void initializeTables(void)
+{
     // initialize Global Type Table, need this?
     GTTMember intType;
     intType.typeID = "INT";
@@ -122,13 +133,8 @@ int main(void)
     strType.typeID = "STRING";
     strType.structure = "ATOMIC";
     GTT.insert(strType);
-
-    // Start parsing/code emitting
-    klump_program(current);
-
-    return 0;
+    
 }
-
 
 // main calls this method
 void klump_program(Lexeme c)
@@ -159,10 +165,16 @@ void klump_program(Lexeme c)
     for (const LSTMember &member : LST) {
         cout << member.id << " " << member.type << " " << member.offset << " " << member.callbyVAR << endl;
     }
+    
+    // dump literal table
+    cout << "Dumping literals" << endl;
+    for (const GLTMember &member : GLT) {
+        cout << member.type << " " << member.value << " " << member.label << endl;
+    }
     */
     // write .data and .bss sections
     emitBss(GST, GTT); // need GTT for sizes of variables
-    emitData(GST);
+    emitData(GST, GLT); // emit global constants and literals 
     //end_pal();
     // make sure we have "." at the end
     //if (current.getToken() != ".")
@@ -224,7 +236,6 @@ void const_list(void)
 void konst(string id)
 {
     // <const> -> NUMBER | DECIMAL | CSTRING
-
     GSTMember newKonst;
     newKonst.id = id;
     newKonst.isConst = true;
@@ -244,7 +255,6 @@ void konst(string id)
         parseError(current.getLineNum(), current.getValue());
     }
     GST.insert(newKonst);
-
 }
 
 void type_definitions()
@@ -702,18 +712,44 @@ void statement(void)
 {
     // <statement> -> <label> <exec_statement>
 
-    label();
+    label(false); // false because label is not from a goto
     exec_statement();
 }
 
-void label(void)
+void label(bool fromGoto)
 {
     // <label> -> # NUMBER | e
 
     if (current.getToken() == "#") {
         current = getNext();
         if (current.getToken() == "NUMBER") {
+            string number = current.getValue();
             current = getNext();
+            // check local label table for a matching label
+            LLTMember temp; temp.numLabel = number;
+            set<LLTMember>:: iterator it = LLT.find(temp);
+            if (it != LLT.end()) {
+                // found!
+                // check if this is for a goto statement
+                if (fromGoto) {
+                    emitGoto(*it);
+                } else {
+                    emitLabel(*it); // emit the found label
+                }
+            } else {
+                // not found, so insert then emit
+                // first check if for goto
+                // do we need to perform error handling if label never defined? possible with one-pass compiler?
+                string label = makeLabel(); // make a new internal label, defined in KlumpCompiler.h
+                temp.intLabel = label; // assign an internal label
+                LLT.insert(temp); // add the new label, numeric label already defined
+                if (fromGoto) {
+                //    semanticError(current.getLineNum(), "Label " + number + " not defined!");
+                    emitGoto(temp);
+                } else {
+                    emitLabel(temp); // actually emit the label
+                }
+            }
         } else {
             parseError(current.getLineNum(), current.getValue());
         }
@@ -926,7 +962,7 @@ void goto_statement(void)
     // <goto_statement> -> GOTO <label> ;
 
     // already have GOTO so...
-    label();
+    label(true);
     if (current.getToken() == ";")
         current = getNext();
     else
@@ -1186,18 +1222,56 @@ void factor(void)
 {
     /* <factor> -> <const> | <func_ref> | <lval> | ( <expression> ) | NOT <factor> */
 
+    // this is where data is emitted, i.e. pushed on the stack
     if ((current.getToken() == "NUMBER") || (current.getToken() == "DECIMAL") ||
         (current.getToken() == "CSTRING")) {
+        // check to see if already in Global literal table
+        GLTMember temp;
+        temp.value = current.getValue();
+        set<GLTMember>:: iterator it = GLT.find(temp);
+        if (it != GLT.end()) {
+            // found!
+            //emitLiteral(*it);
+        } else {
+            // Not found, so add to table them emit
+            temp.label = makeLabel();
+            temp.type = current.getToken();
+            GLT.insert(temp);
+            //emitLiteral(temp);
+        }
+
         //konst();
         current = getNext();
     } else if (current.getToken() == "IDENTIFIER") {
         // <func_ref> | <lval>
-        current = getNext();
+        string name = current.getValue(); // save
         if (current.getToken() == "(") {
             func_ref();
         } else if ((current.getToken() == "[") || (current.getToken() == ".")) {
             qualifier();
-        } // \epsilon in both cases
+        } else {
+            // just a variable, first check local
+            LSTMember localTemp; localTemp.id = current.getValue();
+            set<LSTMember>:: iterator localIt = LST.find(localTemp);
+            if (localIt != LST.end()) {
+                // found!
+                emitVar((*localIt).id, (*localIt).type);
+            } else {
+                // then check global symbol table
+                GSTMember globalTemp; globalTemp.id = current.getValue();
+                set<GSTMember>:: iterator globalIt = GST.find(globalTemp);
+                if (globalIt != GST.end()) {
+                    // found!
+                    emitVar((*globalIt).id, (*globalIt).type);
+                } else {
+                    // not found anywhere!
+                    semanticError(current.getLineNum(), current.getValue() + " not defined!");
+                }
+            }
+
+        }
+        current = getNext();
+// \epsilon in both cases
     } else if (current.getToken() == "(") {
         current = getNext();
         expression();

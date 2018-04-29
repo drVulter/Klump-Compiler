@@ -12,7 +12,7 @@ using namespace std;
 
 void scanError(int lineNum, char c)
 {
-    cout << "klang error: Unrecognized symbol \'" << c
+    cerr << "KLANG ERROR: Unrecognized symbol \'" << c
 	 << "\' encountered during scan on line: " << lineNum
 	 << ".\n";
     exit(EXIT_FAILURE);
@@ -20,7 +20,7 @@ void scanError(int lineNum, char c)
 
 void parseError(int lineNum, string s)
 {
-    cout << "klang error: Parse error on line " << lineNum
+    cerr << "KLANG ERROR: Parse error on line " << lineNum
 	 << " encountered while examining \'" << s
 	 << "\'.\n";
     exit(EXIT_FAILURE);
@@ -28,7 +28,8 @@ void parseError(int lineNum, string s)
 
 void semanticError(int lineNum, string s)
 {
-    cout << "klang error, line " << lineNum << "." << s << endl;
+    // prints line number and an error message
+    cerr << "KLANG ERROR: Semantics error on line " << lineNum << ". " << s << endl;
     exit(EXIT_FAILURE);
 }
 #endif

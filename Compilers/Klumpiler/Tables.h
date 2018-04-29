@@ -36,16 +36,13 @@ struct GSTMember
     string value; // to be used if constant
     bool operator < (const GSTMember &other) const { return id < other.id; }
 };
-bool compareGST(const GSTMember &lhs, const GSTMember &rhs)
-{
-    return lhs.id < rhs.id;
-}
 /* Entry in GLOBAL LITERAL TABLE */
 struct GLTMember 
 {
     string label;
     string type;
     string value;
+    bool operator < (const GLTMember &other) const { return value < other.value; }
 };
 
 /* Entry in GLOBAL TYPE TABLE */
@@ -59,7 +56,7 @@ struct GTTMember
     bool operator < (const GTTMember &other) const { return typeID < other.typeID; }
 };
 
-/*********************** LOCAL TABLE STUFF ************************/
+/* ********************** LOCAL TABLE STUFF *********************** */
 /* Entry in LOCAL SYMBOL TABLE */
 struct LSTMember 
 {
@@ -70,10 +67,13 @@ struct LSTMember
     bool operator < (const LSTMember &other) const { return id < other.id; }
 };
 
-/* Entry in LOCAL LABEL TABLE */
-struct LLTMember 
-{
 
+/* Entry in LOCAL LABEL TABLE */
+struct LLTMember
+{
+    string numLabel; // numeric label
+    string intLabel; // internal label
+    bool operator < (const LLTMember &other) const { return numLabel < other.numLabel; }
 };
-// end guard
-#endif
+
+#endif // end guard
