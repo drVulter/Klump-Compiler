@@ -3,17 +3,19 @@
 
   section .text
 _main:
-  fld qword [x]
+  push dword [i]
+  pop dword [integer]
+  fild dword [integer]
   fld qword [y]
-  fadd
+  fdiv 
   fstp qword [result]
   mov eax, [result]
   mov ebx, [result+4]
-  	push	dword [result+4] 		; push temp as 2 32-bit words
-	push	dword [result]
+	push	dword [result+4]
+  push dword [result]
 	        push    dword str		; address of format string
 	        call    _printf			; Call C function
-	        add     esp, 12			; pop stack 3*4 bytes
+	add     esp, 12			; pop stack 3*4 bytes
   jmp _exit
 _exit:  
 	;; Exit
@@ -23,8 +25,14 @@ _exit:
 	int 0x80
 
   section .bss
+integer: resb 4
 result:  resb 8
+r_temp:  resb 8
+intres: resb 4
+tempLo: resb 4
+tempHi:  resb 4
   section .data
 x:  dq 1.5
-y:  dq 4.6
+y:  dq -6.6
+i:  dd 5                        
 str: db "%f", 10, 0

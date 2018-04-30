@@ -16,11 +16,12 @@ procedure main;
 
           dcl
             x : int;
+            list : myArr;
 
 begin { main }
-    #1;
-    x := r + 4;
-    x := blah;
+    x := i + i;
+    x := i % x;
+    r := r * r2;
 end {main}
 
 .

@@ -16,8 +16,12 @@
 #include <set>
 #include <map>
 
-//  add prototypes
+/*  HELPER PROTOTYPES */
 void initializeTables(void);
+string typeCheck(string a, string b);
+int getLocalStorage();
+
+/* PARSER PROTOTYPES */
 void klump_program(Lexeme c);
 void global_definitions(void);
 void const_definitions(void);
@@ -46,8 +50,8 @@ void actual_arg_list(void);
 void actual_arg(void);
 void procedure_list(void);
 void procedure(void);
-void proc_head(void);
-void proc_body(void);
+GPTMember proc_head(void);
+void proc_body(GPTMember proc);
 void statement_list(void);
 void statement(void);
 void label(bool fromGoto);
@@ -68,13 +72,13 @@ void case_list(void);
 void for_statement(void);
 void next_statement(void);
 void break_statement(void);
-void expression(void);
-void comparison(void);
-void simple_expression(void);
-void more_expression(void); // REMOVE THIS
-void term(void);
-void more_term(void); // REMOVE THIS ???
-void factor(void);
+string expression(void);
+string comparison(void);
+string simple_expression(void);
+string more_expression(void); // REMOVE THIS
+string term(void);
+string more_term(void); // REMOVE THIS ???
+string factor(void);
 void compop(void);
 void end_pal(void); // REMOVE THIS
 void addop(void);
@@ -92,6 +96,7 @@ Lexeme current; // lexeme currently being examined
 set<GSTMember> GST; // Global symbol table
 set<GLTMember> GLT; // Global literal table
 set<GTTMember> GTT; // Global type table
+set<GPTMember> GPT; // Global procedure table
 set<LSTMember> LST; // Local symbol table
 set<LLTMember> LLT; // Local label table
 
@@ -101,6 +106,12 @@ set<string> beginStatement =
     "#", "READ", "READLN", "WRITE", "WRITELN",
     "IDENTIFIER", "CALL", "RETURN", "GOTO", ";",
     "DO", "IF", "WHILE", "CASE", "FOR", "NEXT", "BREAK"
+};
+
+// predefined ATOMIC TYPES
+set<string> atomicTypes =
+{
+    "INT", "REAL", "CSTRING", "BOOL"
 };
 
 int main(void)
@@ -116,6 +127,7 @@ int main(void)
     return 0;
 }
 
+/* HELPER FUNCTIONS */
 void initializeTables(void)
 {
     // initialize Global Type Table, need this?
@@ -133,9 +145,69 @@ void initializeTables(void)
     strType.typeID = "STRING";
     strType.structure = "ATOMIC";
     GTT.insert(strType);
-    
+    GSTMember tempInt; // used for type conversion
+    tempInt.id = "_TEMP_INT_";
+    tempInt.type = "INT";
+    tempInt.isConst = false;
+    GST.insert(tempInt);
+    GPTMember main;
+    main.id = "MAIN";
+    main.parameters = {}; // no parameters
+    main.returnType = "VOID"; // returns nothing
+    GPT.insert(main);
 }
 
+string typeCheck(string a, string b)
+{
+    string errorMsg = "Not an atomic type!";
+    // first make sure atomic types
+    set<string>:: iterator it = atomicTypes.find(a);
+    if (it != atomicTypes.end()) {
+        // check b
+        it = atomicTypes.find(b);
+        if (it != atomicTypes.end()) {
+            if (a == b) {
+                return a; // same type!
+            } else if (a > b) {
+                // need promotion BOOL -> INT -> REAL
+                if (promote(b, a, "rsp")) {
+                    return a;
+                } else {
+                    semanticError(current.getLineNum(), "Cannot promote " + b + "->" + a + "!");
+                }
+            } else {
+                // need demotion
+                if (promote(a, b, "rsp")) {
+                    return b;
+                } else {
+                    semanticError(current.getLineNum(), "Cannot promote " + a + "->" + b + "!");
+                }
+            }
+        } else {
+            semanticError(current.getLineNum(), errorMsg);
+        }
+    } else {
+        semanticError(current.getLineNum(), errorMsg);
+    }
+}
+
+int getLocalStorage(void)
+{
+    // Determine amount of local storage necessary
+    int storage = 0;
+    GTTMember tempType; 
+    for (LSTMember var : LST) {
+        tempType.typeID = var.type;
+        set<GTTMember>:: iterator it = GTT.find(tempType);
+        if (it != GTT.end()) {
+            // found!
+            storage += (*it).size;
+        }
+    }
+    return storage;
+}
+
+/* PARSER FUNCTIONS */
 // main calls this method
 void klump_program(Lexeme c)
 {
@@ -432,7 +504,6 @@ void dcl_definitions(bool isGlobal)
     // dcl_definitions -> DCL dcl_list | e
     // get the first lexeme
     //current = getNext(); // from Scanner.cpp
-
     if (current.getToken() == "DCL") {
         current = getNext();
         dcl_list(isGlobal);
@@ -450,12 +521,10 @@ void dcl_list(bool isGlobal)
     int offset = 0; // to be used for local variables
     while (current.getToken() == "IDENTIFIER") {
         string varName = current.getValue(); // save id
-        //cout << varName << endl;
         current = getNext();
         if (current.getToken() == ":") {
             current = getNext();
             string varType = current.getValue();
-            //cout << varType << endl;
             dcl_type();
             if (current.getToken() == ";") {
                 current = getNext();
@@ -504,11 +573,20 @@ void dcl_type(void)
 void atomic_type(void)
 {
     // <atomic_type> -> BOOL | INT | REAL | STRING
+    set<string>:: iterator it = atomicTypes.find(current.getToken()); // check
+    if (it != atomicTypes.end()) {
+        // found so okay
+        current = getNext();
+    } else {
+        parseError(current.getLineNum(), current.getValue());
+    }
+    /*
     if (current.getToken() == "BOOL" || current.getToken() == "INT" ||
         current.getToken() == "REAL" || current.getToken() == "STRING")
         current = getNext();
     else
         parseError(current.getLineNum(), current.getValue());
+    */
 }
 
 void proc_declarations(void)
@@ -641,13 +719,12 @@ void actual_arg(void)
 {
     // <actual_arg> -> <expression>
 
-    expression();
+    string temp = expression();
 }
 
 void procedure_list(void)
 {
     // <procedure_list> -> { <procedure> }*
-    //cout << current.getToken() << endl;
     while (current.getToken() == "PROCEDURE") {
         current = getNext();
         //cout << "trigger" << endl;
@@ -658,19 +735,28 @@ void procedure_list(void)
 void procedure(void)
 {
     // <procedure> -> <proc_head> <proc_body>
-    proc_head();
-    proc_body();
+    GPTMember currentProc = proc_head();
+    proc_body(currentProc);
 }
 
-void proc_head(void)
+GPTMember proc_head(void)
 {
     // <proc_head> -> PROCEDURE IDENTIFIER ;
 
     /* REMEMBER THAT WE ALREADY GOBBLED UP "PROCEUDURE" */
     if (current.getToken() == "IDENTIFIER") {
+        // check for this id in GLOBAL PROC TABLE
+        GPTMember currentProc; currentProc.id = current.getValue();
+        set<GPTMember>:: iterator it = GPT.find(currentProc);
+        if (it == GPT.end()) {
+            // not in table!
+            semanticError(current.getLineNum(), "Procedure " + current.getValue() +
+                          " not defined!");
+        }
         current = getNext();
         if (current.getToken() == ";") {
             current = getNext();
+            return currentProc;
         } else {
             parseError(current.getLineNum(), current.getValue());
         }
@@ -679,14 +765,20 @@ void proc_head(void)
     }
 }
 
-void proc_body(void)
+void proc_body(GPTMember proc)
 {
     // <proc_body> -> <dcl_definitions> BEGIN <statement_list> END
+    // first clear out local tables
+    LST.clear();
+    LLT.clear();
     dcl_definitions(false); // not global variables
+    proc.storage = getLocalStorage(); // figure out how much local storage necessary
     if (current.getToken() == "BEGIN") {
         current = getNext();
+        emitProcHead(proc);
         statement_list();
         if (current.getToken() == "END") {
+            emitProcEnd(proc);
             current = getNext();
         } else {
             parseError(current.getLineNum(), current.getValue());
@@ -905,7 +997,7 @@ void assignment_statement(void)
     lval(); // remember "IDENTIFIER"  gobbled!
     if (current.getToken() == ":=") {
         current = getNext();
-        expression();
+        string temp = expression();
         if (current.getToken() == ";") {
             current = getNext();
         } else {
@@ -941,7 +1033,7 @@ void return_statement(void)
     // already have RETURN so...
     //if (current.getToken() == "[") {
     //    current = getNext();
-        expression();
+        string temp = expression();
         //if (current.getToken() == "]") {
         //current = getNext();
             if (current.getToken() == ";") {
@@ -1064,7 +1156,7 @@ void case_statement(void)
     // already gobbled CASE so...
     if (current.getToken() == "(") {
         current = getNext();
-        expression();
+        string temp = expression();
         if (current.getToken() == ")") {
             current = getNext();
             case_list();
@@ -1124,15 +1216,15 @@ void for_statement(void)
         current = getNext();
         if (current.getToken() == ":=") {
             current = getNext();
-            expression();
+            string temp = expression();
             // next two cases separate for compiling
             if (current.getToken() == "TO") {
                 current = getNext();
-                expression();
+                string temp = expression();
                 statement();
             } else if (current.getToken() == "DOWNTO") {
                 current = getNext();
-                expression();
+                string temp = expression();
                 statement();
             } else {
                 parseError(current.getLineNum(), current.getValue());
@@ -1169,17 +1261,18 @@ void break_statement(void)
     }
 }
 
-void expression(void)
+string expression(void)
 {
     // <expression> -> <comparison>
 
-    comparison();
+    string expType = comparison();
+    return expType;
 }
 
-void comparison(void)
+string comparison(void)
 {
     // <comparison> -> <simple_expression> { <compop> <simple_expression> }*
-    simple_expression();
+    string compType = simple_expression();
     // maybe change to while loop?
     if ((current.getToken() == "=") ||
         (current.getToken() == "<>") ||
@@ -1187,45 +1280,61 @@ void comparison(void)
         (current.getToken() == "<") ||
         (current.getToken() == ">=") ||
         (current.getToken() == "<=")) {
+        compType = "BOOL";
         compop(); // don't gobble!
         comparison();
     }
+    return compType;
 }
 
-void simple_expression(void)
+string simple_expression(void)
 {
     // <simple_expression> -> <unary> <term> { <addop> <term> }*
 
     unary();
-    term();
+    string seType = term(); // type of the simple expression
     // seems like it could give an issue later...
     while ((current.getToken() == "+") || (current.getToken() == "-") ||
            (current.getToken() == "OR")) {
-        addop();
-        term();
+        string op = current.getToken(); // save operation
+        //addop();
+        current = getNext();
+        string otherType = term();
+        string type = typeCheck(seType, otherType); // resolve the types
+        emitAddop(op, type);
+        seType = type; // update the type
     }
+    return seType;
 }
 
-void term(void)
+string term(void)
 {
     // <term> -> <factor> { <mulop> <factor> }*
 
-    factor();
+    string termType = factor();
     while ((current.getToken() == "*") || (current.getToken() == "/") ||
            (current.getToken() == "%") || (current.getToken() == "AND")) {
-        mulop();
-        factor();
+        string op = current.getToken(); // save the mulop
+        current = getNext();
+        string otherType = factor();
+        string type = typeCheck(termType, otherType);
+        emitMulop(op, type);
+        termType = type; // update the type
+        //mulop();
     }
+    return termType;
 }
 
-void factor(void)
+string factor(void)
 {
     /* <factor> -> <const> | <func_ref> | <lval> | ( <expression> ) | NOT <factor> */
 
     // this is where data is emitted, i.e. pushed on the stack
+    string factorType; // type to be returned
     if ((current.getToken() == "NUMBER") || (current.getToken() == "DECIMAL") ||
         (current.getToken() == "CSTRING")) {
         // check to see if already in Global literal table
+        factorType = current.getToken(); // save this type for returning
         GLTMember temp;
         temp.value = current.getValue();
         set<GLTMember>:: iterator it = GLT.find(temp);
@@ -1255,14 +1364,16 @@ void factor(void)
             set<LSTMember>:: iterator localIt = LST.find(localTemp);
             if (localIt != LST.end()) {
                 // found!
-                emitVar((*localIt).id, (*localIt).type);
+                factorType = (*localIt).type;
+                emitVar((*localIt).id, factorType);
             } else {
                 // then check global symbol table
                 GSTMember globalTemp; globalTemp.id = current.getValue();
                 set<GSTMember>:: iterator globalIt = GST.find(globalTemp);
                 if (globalIt != GST.end()) {
                     // found!
-                    emitVar((*globalIt).id, (*globalIt).type);
+                    factorType = (*globalIt).type;
+                    emitVar((*globalIt).id, factorType);
                 } else {
                     // not found anywhere!
                     semanticError(current.getLineNum(), current.getValue() + " not defined!");
@@ -1274,7 +1385,7 @@ void factor(void)
 // \epsilon in both cases
     } else if (current.getToken() == "(") {
         current = getNext();
-        expression();
+        factorType = expression();
         if (current.getToken() == ")") {
             current = getNext();
         } else {
@@ -1282,10 +1393,11 @@ void factor(void)
         }
     } else if (current.getToken() == "NOT") {
         current = getNext();
-        factor();
+        factorType = factor();
     } else {
         parseError(current.getLineNum(), current.getValue());
     }
+    return factorType;
 }
 
 void compop(void)

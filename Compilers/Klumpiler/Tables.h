@@ -10,6 +10,7 @@
 #include <iostream>
 #include <cstdlib>
 #include <string>
+#include <vector>
 
 using namespace std;
 
@@ -26,6 +27,14 @@ struct recInfo
 
 };
 
+/* Parameter for function */
+struct parameter
+{
+    string id; // identifier
+    string type; // type
+    bool callbyVAR;
+};
+
 /*********************** GLOBAL TABLE STUFF ************************/
 /* Entry in GLOBAL SYMBOL TABLE */
 struct GSTMember 
@@ -35,6 +44,16 @@ struct GSTMember
     bool isConst;
     string value; // to be used if constant
     bool operator < (const GSTMember &other) const { return id < other.id; }
+};
+
+/* Entry in GLOBAL PROCEDURE TABLE */
+struct GPTMember
+{
+    string id; // Procedure ID
+    vector<parameter> parameters; // list of parameters
+    string returnType; // return type
+    int storage; // local storage in BYTES
+    bool operator < (const GPTMember &other) const { return id < other.id; }
 };
 /* Entry in GLOBAL LITERAL TABLE */
 struct GLTMember 

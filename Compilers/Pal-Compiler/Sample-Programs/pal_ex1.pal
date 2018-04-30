@@ -4,8 +4,8 @@ dcl
   c : int;
 
 begin
-  a := 3;
-  b := 3 / a;
+  a := 3 + 4 - 12;
+  b := 12 / 5;
   writeln (a);
   writeln (b);
 end.
