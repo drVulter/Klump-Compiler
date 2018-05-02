@@ -31,7 +31,7 @@ void emitProcEnd(GPTMember proc);
 void emitLabel(LLTMember label);
 void emitGoto(LLTMember label);
 void emitEmptyStatement(void);
-void emitWrite(vector<string> argTypes);
+void emitWrite(string type);
 void emitWriteln(void);
 void emitAssignment(string var, string type);
 void emitMulop(string opCode, string type);
@@ -227,7 +227,7 @@ void emitEmptyStatement(void)
     emitLine("", "nop", "", "");
 }
 
-void emitWrite(vector<string> argTypes)
+void emitWrite(string type)
 {
     /*
       Basic print statement, uses C printf function.
@@ -242,8 +242,8 @@ void emitWrite(vector<string> argTypes)
       mov esp, ebp
       pop ebp
      */
-    for (int i = 0; i < argTypes.size(); i++) {
-        string type = argTypes[i];
+    //for (int i = 0; i < argTypes.size(); i++) {
+    //string type = argTypes[i];
         if (type == "REAL") {
             comment("Writing a REAL");
             modStack(4);
@@ -277,7 +277,7 @@ void emitWrite(vector<string> argTypes)
             //emitLine("", "mov", "esp, ebp", "");
             //emitLine("", "pop", "ebp", "Stack frame restored");
         }
-    }
+        //}
     // Sittin' on tha toilet
     comment("Now FLUSH!");
     emitLine("", "sub", "esp, 8", "");

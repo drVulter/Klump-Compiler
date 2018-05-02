@@ -76,13 +76,8 @@ _main:   	 ; Begin MAIN
 	pop ebp 	 ; Stack frame restored
 	add esp, -4 	 ; Stack fix
 	push dword S 	 ; Emitting a STRING var
-	push dword [I] 	 ; Emitting a variable
 ;; Writing a STRING
 	push dword _strStr 
-	call _printf 	 ; Make the call
-	add esp, 12 	 ; stack fixed
-;; Writing an INT
-	push dword _intStr 
 	call _printf 	 ; Make the call
 	add esp, 12 	 ; stack fixed
 ;; Now FLUSH!

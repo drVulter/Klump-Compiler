@@ -76,15 +76,47 @@ _main:   	 ; Begin MAIN
 	pop ebp 	 ; Stack frame restored
 	add esp, -4 	 ; Stack fix
 	push dword S 	 ; Emitting a STRING var
-	push dword [I] 	 ; Emitting a variable
 ;; Writing a STRING
 	push dword _strStr 
 	call _printf 	 ; Make the call
 	add esp, 12 	 ; stack fixed
+;; Now FLUSH!
+	sub esp, 8 
+	push dword 0 	 ; flush all buffers to stdout
+	call _fflush 	 ; make the call
+	add esp, 12 	 ; Clean up stack
+	add esp, -4 	 ; Stack fix
+	push dword [I] 	 ; Emitting a variable
 ;; Writing an INT
 	push dword _intStr 
 	call _printf 	 ; Make the call
 	add esp, 12 	 ; stack fixed
+;; Now FLUSH!
+	sub esp, 8 
+	push dword 0 	 ; flush all buffers to stdout
+	call _fflush 	 ; make the call
+	add esp, 12 	 ; Clean up stack
+	add esp, -4 	 ; Stack fix
+	push dword _L_2_ 	 ; Emitting a STRING var
+;; Writing a STRING
+	push dword _strStr 
+	call _printf 	 ; Make the call
+	add esp, 12 	 ; stack fixed
+;; Now FLUSH!
+	sub esp, 8 
+	push dword 0 	 ; flush all buffers to stdout
+	call _fflush 	 ; make the call
+	add esp, 12 	 ; Clean up stack
+	add esp, -4 	 ; Stack fix
+	fld qword [_L_3_] 	 ; Emitting a real variable
+;; Writing a REAL
+	add esp, 4 	 ; Stack fix
+	fstp qword [_TEMP_REAL_] 	 ; Put the real in temporary storage
+	push dword [_TEMP_REAL_+4] 
+	push dword [_TEMP_REAL_] 
+	push dword _realStr 	 ; string for formatting
+	call _printf 	 ; Make the call
+	add esp, 12 	 ; Fix the stack
 ;; Now FLUSH!
 	sub esp, 8 
 	push dword 0 	 ; flush all buffers to stdout
@@ -148,4 +180,6 @@ section .data
 	R2: dq 6.5
 	S: db 'hello world', 0
 	_L_0_: db 'here is a literal string', 0
+	_L_2_: db 'literal string', 0
+	_L_3_: dq 0.2
 	_L_1_: dq 5.4

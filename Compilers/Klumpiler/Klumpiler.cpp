@@ -45,8 +45,8 @@ void formal_arg_list(void);
 void formal_arg(void);
 void call_by(void);
 void return_type(void);
-vector<string> actual_args(void);
-vector<string> actual_arg_list(void);
+void actual_args(string caller);
+void actual_arg_list(string caller);
 string actual_arg(void);
 void procedure_list(void);
 void procedure(void);
@@ -693,34 +693,44 @@ void return_type(void)
     atomic_type();
 }
 
-vector<string> actual_args(void)
+void actual_args(string caller)
 {
     // <actual_args> -> ( <actual_arg_list> ) | e
 
     vector<string> argTypes;
     if (current.getToken() == "(") {
         current = getNext();
-        argTypes = actual_arg_list();
+        actual_arg_list(caller);
         if (current.getToken() == ")") {
             current = getNext();
         } else {
             parseError(current.getLineNum(), current.getValue());
         }
     }
-    return argTypes;
     // otherwise assume no actual arguments
 }
 
-vector<string> actual_arg_list(void)
+void actual_arg_list(string caller)
 {
     // <actual_arg_list> -> <actual_arg> { , <actual_arg> }*
     vector<string> argStack; // will hold types of the arguments, args themleves already on x8086 STACK
-    argStack.push_back(actual_arg());
-    while (current.getToken() == ",") {
-        current = getNext();
+    if ((caller == "READ") || (caller == "WRITE")) {
+        modStack(-4);
+        string type = expression();
+        emitWrite(type);
+        while (current.getToken() == ",") {
+            current = getNext();
+            modStack(-4);
+            emitWrite(expression());
+        }
+    } else {
         argStack.push_back(actual_arg());
+        while (current.getToken() == ",") {
+            current = getNext();
+            argStack.push_back(actual_arg());
+
+        }
     }
-    return argStack;
 }
 
 string actual_arg(void)
@@ -956,7 +966,7 @@ void read_statement(void)
 
     if (current.getToken() == "READ") {
         current = getNext();
-        actual_args();
+        actual_args("READ");
         if (current.getToken() == ";") {
             current = getNext();
         } else {
@@ -964,7 +974,7 @@ void read_statement(void)
         }
     } else { // safe to use else here?
         current = getNext();
-        actual_args();
+        actual_args("READ");
         if (current.getToken() == ";") {
             current = getNext();
         } else {
@@ -983,10 +993,8 @@ void write_statement(void)
         isWriteln = true;
     }
     current = getNext();
-    modStack(-4); // make room in case of non real arg
-    vector<string> argTypes = actual_args();
+    actual_args("WRITE");
     if (current.getToken() == ";") {
-        emitWrite(argTypes);
         if (isWriteln)
             emitWriteln();
         current = getNext();
@@ -1028,7 +1036,7 @@ void call_statement(void)
     // already have CALL so...
     if (current.getToken() == "IDENTIFIER") {
         current = getNext();
-        actual_args();
+        actual_args("PROC");
         if (current.getToken() == ";") {
             current = getNext();
         } else {
@@ -1488,7 +1496,7 @@ void func_ref(void) {
     // <func_ref> -> IDENTIFIER <actual_args>
 
     // already gobbled IDENTIFIER so...
-    actual_args();
+    actual_args("PROC");
 }
 
 

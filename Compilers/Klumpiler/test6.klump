@@ -22,7 +22,7 @@ begin { main }
 writeln(i);
 writeln('here is a literal string');
 writeln(5.4);
-writeln(s, i, 'literal string', -0.2);
+writeln(s);
 writeln(r);
 end {main}
 
