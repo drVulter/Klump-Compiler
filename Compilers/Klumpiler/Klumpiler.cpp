@@ -45,8 +45,8 @@ void formal_arg_list(void);
 void formal_arg(void);
 void call_by(void);
 void return_type(void);
-stack<string> actual_args(void);
-stack<string> actual_arg_list(void);
+vector<string> actual_args(void);
+vector<string> actual_arg_list(void);
 string actual_arg(void);
 void procedure_list(void);
 void procedure(void);
@@ -693,11 +693,11 @@ void return_type(void)
     atomic_type();
 }
 
-stack<string> actual_args(void)
+vector<string> actual_args(void)
 {
     // <actual_args> -> ( <actual_arg_list> ) | e
 
-    stack<string> argTypes;
+    vector<string> argTypes;
     if (current.getToken() == "(") {
         current = getNext();
         argTypes = actual_arg_list();
@@ -711,14 +711,14 @@ stack<string> actual_args(void)
     // otherwise assume no actual arguments
 }
 
-stack<string> actual_arg_list(void)
+vector<string> actual_arg_list(void)
 {
     // <actual_arg_list> -> <actual_arg> { , <actual_arg> }*
-    stack<string> argStack; // will hold types of the arguments, args themleves already on x8086 STACK
-    argStack.push(actual_arg());
+    vector<string> argStack; // will hold types of the arguments, args themleves already on x8086 STACK
+    argStack.push_back(actual_arg());
     while (current.getToken() == ",") {
         current = getNext();
-        argStack.push(actual_arg());
+        argStack.push_back(actual_arg());
     }
     return argStack;
 }
@@ -984,7 +984,7 @@ void write_statement(void)
     }
     current = getNext();
     modStack(-4); // make room in case of non real arg
-    stack<string> argTypes = actual_args();
+    vector<string> argTypes = actual_args();
     if (current.getToken() == ";") {
         emitWrite(argTypes);
         if (isWriteln)

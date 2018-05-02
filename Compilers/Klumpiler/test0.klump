@@ -19,9 +19,11 @@ procedure main;
             list : myArr;
 
 begin { main }
-writeln('hey');
-      writeln(i);
-      writeln(s);
+writeln(i);
+writeln('here is a literal string');
+writeln(5.4);
+writeln(s);
+writeln(r);
 end {main}
 
 .

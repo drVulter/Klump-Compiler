@@ -9,13 +9,42 @@
 _main:   	 ; Begin MAIN
 	push ebp 	 ; Save base pointer
 	mov ebp, esp 	 ; new base
-	sub esp, 92 	 ; Reserve memory for local variables
-  add esp, -4 
-  push dword _L_0_
-;; Writing a STRING
-	push dword _strStr 
+	sub esp,  92	 ; Reserve memory for local variables
+  jmp integer
+integer:
+	add esp, -4 	 ; Stack fix
+	push dword [I] 	 ; Emitting a variable
+;; Writing an INT
+	push dword _intStr 
 	call _printf 	 ; Make the call
 	add esp, 12 	 ; stack fixed
+;; Now FLUSH!
+	sub esp, 8 
+	push dword 0 	 ; flush all buffers to stdout
+	call _fflush 	 ; make the call
+  add esp, 12
+  jmp afterInt
+afterInt: 
+  ;; Printing a linebreak
+  add esp, -4
+	push dword _NEW_LINE_ 	 ; pushing line break
+	push dword _strStr 
+	call _printf 	 ; Make the call
+	add esp, 12 	 ; Fix stack
+  jmp real
+real:
+  add esp, -4
+	fld qword [R] 	 ; Emitting a real variable
+  ;; Writing a REAL
+  add esp, 4
+	fstp qword [_TEMP_REAL_] 	 ; Put the real in temporary storage
+	push dword [_TEMP_REAL_+4] 
+	push dword [_TEMP_REAL_] 
+	push dword _realStr 	 ; string for formatting
+  jmp preCall
+preCall:  
+	call _printf 	 ; Make the call
+	add esp, 12 	 ; Fix the stack
 ;; Now FLUSH!
 	sub esp, 8 
 	push dword 0 	 ; flush all buffers to stdout
@@ -30,8 +59,8 @@ _main:   	 ; Begin MAIN
 	mov esp, ebp 
 	pop ebp 	 ; Stack frame restored
 _EXIT_MAIN:   	 ; End of MAIN
-		add esp, 92 	 ; Deallocate local memory
-		mov esp, ebp
+	add esp, 92 	 ; Deallocate local memory
+	mov ebp, esp 
 	pop ebp 	 ; Fix stack
 ;; Exit
 _exit_main:   
@@ -53,5 +82,3 @@ section .data
 	R: dq 5.6
 	R2: dq 6.5
 	S: db 'hello world', 0
-	_L_1_: db ' there', 0
-	_L_0_: db 'hey', 0

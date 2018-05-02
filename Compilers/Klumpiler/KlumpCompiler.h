@@ -31,7 +31,7 @@ void emitProcEnd(GPTMember proc);
 void emitLabel(LLTMember label);
 void emitGoto(LLTMember label);
 void emitEmptyStatement(void);
-void emitWrite(stack<string> argTypes);
+void emitWrite(vector<string> argTypes);
 void emitWriteln(void);
 void emitAssignment(string var, string type);
 void emitMulop(string opCode, string type);
@@ -192,10 +192,11 @@ void emitProcEnd(GPTMember proc)
 {
     // ESCHATON
     string label = "_EXIT_" + proc.id;
+    int offset = proc.storage + ((proc.storage + 4) % 16);
     emitLine(label, "", "","End of " + proc.id);
-    emitLine("", "push", "ebp", "Fix stack");
+    emitLine("", "add", "esp, " + to_string(offset), "Deallocate local memory");
     emitLine("", "mov", "ebp, esp", "");
-    emitLine("", "add", "esp, " + to_string(proc.storage), "Deallocate local memory");
+    emitLine("", "pop", "ebp", "Fix stack");
 }
 /* ********************** STATEMENTS ********************** */
 
@@ -226,7 +227,7 @@ void emitEmptyStatement(void)
     emitLine("", "nop", "", "");
 }
 
-void emitWrite(stack<string> argTypes)
+void emitWrite(vector<string> argTypes)
 {
     /*
       Basic print statement, uses C printf function.
@@ -241,9 +242,8 @@ void emitWrite(stack<string> argTypes)
       mov esp, ebp
       pop ebp
      */
-    while (!argTypes.empty()) {
-        string type = argTypes.top();
-        argTypes.pop();
+    for (int i = 0; i < argTypes.size(); i++) {
+        string type = argTypes[i];
         if (type == "REAL") {
             comment("Writing a REAL");
             modStack(4);
@@ -283,6 +283,7 @@ void emitWrite(stack<string> argTypes)
     emitLine("", "sub", "esp, 8", "");
     emitLine("", "push dword", "0", "flush all buffers to stdout");
     emitLine("", "call", "_fflush", "make the call");
+    emitLine("", "add", "esp, 12", "Clean up stack");
 }
 
 void emitWriteln(void)
