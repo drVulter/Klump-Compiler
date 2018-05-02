@@ -36,6 +36,7 @@ void emitWriteln(void);
 void emitAssignment(string var, string type);
 void emitMulop(string opCode, string type);
 void emitAddop(string opCode, string type);
+bool emitNeg(string type);
 void emitNumber(string num); 
 void emitVar(string var, string type);
 void emitLiteral(string label, string type);
@@ -417,6 +418,22 @@ void emitAddop(string opCode, string type)
     */
 }
 
+bool emitNeg(string type)
+{
+    bool success = true;
+    comment("Negation");
+    if (type == "INT") {
+        emitLine("", "push dword", "-1", "");
+        emitMulop("*", "INT");
+    } else if (type == "REAL") {
+        emitLine("", "fld qword", "[_NEGATIVE_]", "");
+        emitMulop("*", "REAL");
+    } else {
+        success = false;
+    }
+    return success;
+}
+
 void emitAssignment(string var)
 {
     /*
@@ -470,6 +487,7 @@ void emitData(set<GSTMember> &consts, set<GLTMember> &literals)
     cout << "\t_realStr: db \"%f\", 0\n";
     cout << "\t_strStr: db \"%s\", 0\n";
     emitLine("", "_NEW_LINE_: db", "10, 0", "Just a carriage return");
+    emitLine("_NEGATIVE_", "dq -1.0", "", "Just negative one");
     // emit the constants
     for (GSTMember konst : consts) {
         if (konst.isConst) {

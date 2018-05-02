@@ -83,7 +83,7 @@ void compop(void);
 void end_pal(void); // REMOVE THIS
 void addop(void);
 void mulop(void);
-void unary(void);
+bool unary(void);
 string lval(void);
 void func_ref(void);
 void qualifier(void);
@@ -1313,8 +1313,15 @@ string simple_expression(void)
 {
     // <simple_expression> -> <unary> <term> { <addop> <term> }*
 
-    unary();
+    bool isNeg = unary();
     string seType = term(); // type of the simple expression
+    if (isNeg) {
+        cout << "TESTING" << seType << endl;
+        bool success = emitNeg(seType);
+        if (!success) {
+            semanticError(current.getLineNum(), "Cannot negate a non-number!");
+        }
+    }
     // seems like it could give an issue later...
     while ((current.getToken() == "+") || (current.getToken() == "-") ||
            (current.getToken() == "OR")) {
@@ -1469,13 +1476,17 @@ void mulop(void)
     }
 }
 
-void unary(void)
+bool unary(void)
 {
     // <unary> -> + | - | e
-
-    if ((current.getToken() == "+") || (current.getToken() == "-")) {
+    bool isNeg = false;
+    if (current.getToken() == "+") {
+        current = getNext();
+    } else if (current.getToken() == "-") {
+        isNeg = true;
         current = getNext();
     }
+    return isNeg;
 }
 
 string lval(void)
