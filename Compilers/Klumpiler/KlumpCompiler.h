@@ -21,6 +21,7 @@ string makeLabel(void);
 bool promote(string emp, string boss, string address);
 void emitLine(string label, string opcode, string operands, string comment);
 void emitNewLine(void);
+void modStack(int n);
 void blankLine(void);
 void comment(string s);
 void front(void);
@@ -29,12 +30,15 @@ void emitProcHead(GPTMember proc);
 void emitProcEnd(GPTMember proc);
 void emitLabel(LLTMember label);
 void emitGoto(LLTMember label);
-void emitWriteStatement(void);
-void emitAssingnment(string var);
+void emitEmptyStatement(void);
+void emitWrite(stack<string> argTypes);
+void emitWriteln(void);
+void emitAssignment(string var, string type);
 void emitMulop(string opCode, string type);
 void emitAddop(string opCode, string type);
 void emitNumber(string num); 
 void emitVar(string var, string type);
+void emitLiteral(string label, string type);
 void emitBss(set<GSTMember> &vars, set<GTTMember> &types);
 void emitData(set<GSTMember> &consts, set<GLTMember> &literals); 
 
@@ -44,7 +48,7 @@ using namespace std;
 
 map<string, string> sizes =
 {
-    {"INT", "dw"}, {"REAL", "dq"}, {"STRING", "db"}
+    {"INT", "dd"}, {"REAL", "dq"}, {"STRING", "db"}
 };
 
 // Make a new internal label
@@ -107,6 +111,12 @@ void emitNewLine(void)
 {
     
 }
+
+void modStack(int n)
+{
+    // add <n> to esp
+    emitLine("", "add", "esp, " + to_string(n), "Stack fix");
+}
 // emits an assembly language comment
 void comment(string s)
 {
@@ -135,16 +145,12 @@ void front(void)
     // possibly move these to separate function??
     comment("This was made by a machine!");
     blankLine();
-    cout << "global _main\n";
-    cout << "extern _printf\n";
+    emitLine("", "global _main", "", "Entry point");
+    emitLine("", "extern _printf", "", "Output");
+    emitLine("", "extern _fflush", "", "Flush buffers to stdout");
     blankLine();
     comment("TEXT Section");
-    cout << "section .text\n";
-    //emitLine("_main", "", "", "");
-    /* Don't need stack stuff? */
-    //comment("Set up stack frame");
-    //cout << "push ebp\n";
-    //cout << "mov ebp, esp\n";
+    emitLine("", "section .text", "", "");
 }
 
 void back(void)
@@ -168,7 +174,7 @@ void emitProcHead(GPTMember proc)
 {
     // emit beginning of procedure
     string label; // internal label
-    if (proc.id == "main") {
+    if (proc.id == "MAIN") {
         label = "_main";
     } else {
         label = "_ENTER_" + proc.id;
@@ -178,7 +184,8 @@ void emitProcHead(GPTMember proc)
     emitLine("", "push", "ebp", "Save base pointer");
     emitLine("", "mov", "ebp, esp", "new base");
     // set up storage
-    emitLine("", "sub", "esp, " + to_string(proc.storage), "Reserve memory for local variables");
+    int offset = proc.storage + ((proc.storage + 4) % 16);
+    emitLine("", "sub", "esp, " + to_string(offset), "Reserve memory for local variables");
 }
 
 void emitProcEnd(GPTMember proc)
@@ -211,7 +218,15 @@ void emitGoto(LLTMember label)
     emitLine("", "jmp", label.intLabel, ""); 
 }
 
-void emitWriteStatement(Lexeme l)
+void emitEmptyStatement(void)
+{
+    /*
+      nop
+     */
+    emitLine("", "nop", "", "");
+}
+
+void emitWrite(stack<string> argTypes)
 {
     /*
       Basic print statement, uses C printf function.
@@ -226,24 +241,68 @@ void emitWriteStatement(Lexeme l)
       mov esp, ebp
       pop ebp
      */
-    string outString;
-    if (l.getToken() == "NUMBER")
-        outString = l.getValue();
-    else
-        outString = "[" + l.getValue() + "]";
-    comment("Print statement");
-    cout << "push ebp\n";
-    cout << "mov ebp, esp\n";
-    cout << "push dword " << outString << "\n";
-    cout << "push dword str\n"; // str predefined for formatting
-    cout << "call _printf\n"; // actual function call
-    cout << "add esp, 8\n";
-    cout << "mov esp, ebp\n";
-    cout << "pop ebp\n";
-    comment("Stack frame torn down.");
+    while (!argTypes.empty()) {
+        string type = argTypes.top();
+        argTypes.pop();
+        if (type == "REAL") {
+            comment("Writing a REAL");
+            modStack(4);
+            emitLine("", "fstp qword", "[_TEMP_REAL_]", "Put the real in temporary storage");
+
+            emitLine("", "push dword", "[_TEMP_REAL_+4]", "");
+            emitLine("", "push dword", "[_TEMP_REAL_]", "");
+            emitLine("", "push dword", "_realStr", "string for formatting");
+            emitLine("", "call", "_printf", "Make the call");
+            emitLine("", "add", "esp, 12", "Fix the stack");
+        
+        } else {
+            string typeStr; // formatting string
+            string arg; // actual pushed arg
+            if (type == "INT") {
+                typeStr = "_intStr";
+                //arg = "[" + name + "]";
+                comment("Writing an INT");
+            } else if (type == "STRING") {
+                typeStr = "_strStr";
+                //arg = name;
+                comment("Writing a STRING");
+            }
+            //emitLine("", "push", "ebp", "");
+            //emitLine("", "mov", "ebp, esp", "");
+            //emitLine("", "push dword", arg, "Actual arg");
+            emitLine("", "push dword", typeStr, "");
+            emitLine("", "call", "_printf", "Make the call");
+            emitLine("", "add", "esp, 12", "stack fixed");
+            //emitLine("", "add", "esp, 8", "Fix stack");
+            //emitLine("", "mov", "esp, ebp", "");
+            //emitLine("", "pop", "ebp", "Stack frame restored");
+        }
+    }
+    // Sittin' on tha toilet
+    comment("Now FLUSH!");
+    emitLine("", "sub", "esp, 8", "");
+    emitLine("", "push dword", "0", "flush all buffers to stdout");
+    emitLine("", "call", "_fflush", "make the call");
 }
 
+void emitWriteln(void)
+{
+    comment("Printing a linebreak");
+    emitLine("", "push", "ebp", "");
+    emitLine("", "mov", "ebp, esp", "");
+    emitLine("", "push dword", "_NEW_LINE_", "pushing line break");
+    emitLine("", "push dword", "_strStr", "");
+    emitLine("", "call", "_printf", "Make the call");
+    emitLine("", "add", "esp, 8", "Fix stack");
+    emitLine("", "mov", "esp, ebp", "");
+    emitLine("", "pop", "ebp", "Stack frame restored");
+    // no need to FLUSH
+}
 
+void emitAssignment(string var, string type)
+{
+
+}
 void emitNumber(string num)
 {
     /*
@@ -269,8 +328,21 @@ void emitVar(string var, string type)
     } else if (type == "REAL") {
         typeStr = "qword";
         emitLine("", "fld " + typeStr, "[" + var + "]", "Emitting a real variable");
+    } else if (type == "STRING") {
+        typeStr = "dword";
+        emitLine("", "push " + typeStr, var, "Emitting a STRING var");
     }
 
+}
+
+void emitLiteral(string label, string type)
+{
+    if (type == "INT") {
+        emitLine("", "push dword", "[" + label + "]", "Emitting an integer literal");
+    } else if (type == "REAL") {
+        emitLine("", "fld qword", "[" + label + "]", "Emitting a real literal");
+    } else if (type == "STRING") {
+    }
 }
 
 void emitMulop(string opCode, string type)
@@ -367,7 +439,7 @@ void emitBss(set<GSTMember> &vars, set<GTTMember> &types)
     */
     blankLine();
     cout << "section .bss\n";
-
+    emitLine("", "_TEMP_REAL_: resb", "8", "Temporary storage for reals");
     for (GSTMember var : vars) {
         if (!var.isConst) {
             GTTMember tempType; tempType.typeID = var.type; // dummy for searching
@@ -393,13 +465,15 @@ void emitData(set<GSTMember> &consts, set<GLTMember> &literals)
 
     blankLine();
     cout << "section .data\n";
-    cout << "\tintStr: db \"%d\", 10, 0\n";
-    cout << "\trealStr: db \"%f\", 10, 0\n";
-    cout << "\tstrStr: db \"%s\", 10, 0\n";
+    cout << "\t_intStr: db \"%d\", 0\n";
+    cout << "\t_realStr: db \"%f\", 0\n";
+    cout << "\t_strStr: db \"%s\", 0\n";
+    emitLine("", "_NEW_LINE_: db", "10, 0", "Just a carriage return");
     // emit the constants
     for (GSTMember konst : consts) {
         if (konst.isConst) {
             //string sizeStr; // how big?
+            string name = konst.value;
             cout << "\t" << konst.id << ": " << sizes[konst.type] << " " <<
                konst.value << endl;
         }

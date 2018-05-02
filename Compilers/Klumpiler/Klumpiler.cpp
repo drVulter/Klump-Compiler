@@ -45,9 +45,9 @@ void formal_arg_list(void);
 void formal_arg(void);
 void call_by(void);
 void return_type(void);
-void actual_args(void);
-void actual_arg_list(void);
-void actual_arg(void);
+stack<string> actual_args(void);
+stack<string> actual_arg_list(void);
+string actual_arg(void);
 void procedure_list(void);
 void procedure(void);
 GPTMember proc_head(void);
@@ -84,7 +84,7 @@ void end_pal(void); // REMOVE THIS
 void addop(void);
 void mulop(void);
 void unary(void);
-void lval(void);
+string lval(void);
 void func_ref(void);
 void qualifier(void);
 // end_klump(void);
@@ -106,6 +106,11 @@ set<string> beginStatement =
     "#", "READ", "READLN", "WRITE", "WRITELN",
     "IDENTIFIER", "CALL", "RETURN", "GOTO", ";",
     "DO", "IF", "WHILE", "CASE", "FOR", "NEXT", "BREAK"
+};
+
+map<string,string> types =
+{
+    {"NUMBER", "INT"}, {"DECIMAL", "REAL"}, {"CSTRING", "STRING"}
 };
 
 // predefined ATOMIC TYPES
@@ -321,7 +326,7 @@ void konst(string id)
         current = getNext();
     } else if (current.getToken() == "CSTRING") {
         newKonst.type = "STRING";
-        newKonst.value = current.getValue();
+        newKonst.value = current.getValue() + ", 0";
         current = getNext();
     } else {
         parseError(current.getLineNum(), current.getValue());
@@ -532,7 +537,7 @@ void dcl_list(bool isGlobal)
                 if (isGlobal) {
                     GSTMember var;
                     var.id = varName;
-                    var.type = varType;
+                    var.type = types[varType];
                     var.isConst = false;
                     GST.insert(var);
                 } else {
@@ -688,38 +693,41 @@ void return_type(void)
     atomic_type();
 }
 
-void actual_args(void)
+stack<string> actual_args(void)
 {
     // <actual_args> -> ( <actual_arg_list> ) | e
 
+    stack<string> argTypes;
     if (current.getToken() == "(") {
         current = getNext();
-        actual_arg_list();
+        argTypes = actual_arg_list();
         if (current.getToken() == ")") {
             current = getNext();
         } else {
             parseError(current.getLineNum(), current.getValue());
         }
     }
+    return argTypes;
     // otherwise assume no actual arguments
 }
 
-void actual_arg_list(void)
+stack<string> actual_arg_list(void)
 {
     // <actual_arg_list> -> <actual_arg> { , <actual_arg> }*
-
-    actual_arg();
+    stack<string> argStack; // will hold types of the arguments, args themleves already on x8086 STACK
+    argStack.push(actual_arg());
     while (current.getToken() == ",") {
         current = getNext();
-        actual_arg();
+        argStack.push(actual_arg());
     }
+    return argStack;
 }
 
-void actual_arg(void)
+string actual_arg(void)
 {
     // <actual_arg> -> <expression>
 
-    string temp = expression();
+    return expression();
 }
 
 void procedure_list(void)
@@ -970,23 +978,20 @@ void write_statement(void)
     /* <write_statement> -> WRITE <actual_args> ;
        | WRITELN <actual_args> ;
      */
-
-    if (current.getToken() == "WRITE") {
+    bool isWriteln = false;
+    if (current.getToken() == "WRITELN") {
+        isWriteln = true;
+    }
+    current = getNext();
+    modStack(-4); // make room in case of non real arg
+    stack<string> argTypes = actual_args();
+    if (current.getToken() == ";") {
+        emitWrite(argTypes);
+        if (isWriteln)
+            emitWriteln();
         current = getNext();
-        actual_args();
-        if (current.getToken() == ";") {
-            current = getNext();
-        } else {
-            parseError(current.getLineNum(), current.getValue());
-        }
-    } else { // safe to use else here?
-        current = getNext();
-        actual_args();
-        if (current.getToken() == ";") {
-            current = getNext();
-        } else {
-            parseError(current.getLineNum(), current.getValue());
-        }
+    } else {
+        parseError(current.getLineNum(), current.getValue());
     }
 }
 
@@ -994,11 +999,19 @@ void assignment_statement(void)
 {
     // <assignment_statement> -> <lval> := <expression> ;
 
-    lval(); // remember "IDENTIFIER"  gobbled!
+    //string nameStr = val(); // Save the name!!
+    LSTMember tempLST; tempLST.id = lval();
+    set<LSTMember>:: iterator it = LST.find(tempLST);
+    if (it != LST.end()) {
+        // found!
+        
+    }
     if (current.getToken() == ":=") {
         current = getNext();
-        string temp = expression();
+        string type = expression();
         if (current.getToken() == ";") {
+            // emit the statement
+            //emitAssignment(name, type);
             current = getNext();
         } else {
             parseError(current.getLineNum(), current.getValue());
@@ -1067,6 +1080,7 @@ void empty_statement(void)
 
     // already gobbled ; so...
     // don't do anything!
+    emitEmptyStatement();
 }
 
 void compound_statement(void)
@@ -1334,19 +1348,22 @@ string factor(void)
     if ((current.getToken() == "NUMBER") || (current.getToken() == "DECIMAL") ||
         (current.getToken() == "CSTRING")) {
         // check to see if already in Global literal table
-        factorType = current.getToken(); // save this type for returning
+        factorType = types[current.getToken()]; // save this type for returning
         GLTMember temp;
         temp.value = current.getValue();
         set<GLTMember>:: iterator it = GLT.find(temp);
         if (it != GLT.end()) {
             // found!
-            //emitLiteral(*it);
+            emitLiteral((*it).label, (*it).type);
         } else {
             // Not found, so add to table them emit
             temp.label = makeLabel();
-            temp.type = current.getToken();
+            temp.type = factorType;
+            if (temp.type == "STRING") {
+                temp.value += ", 0";
+            }
             GLT.insert(temp);
-            //emitLiteral(temp);
+            emitVar(temp.label, temp.type);
         }
 
         //konst();
@@ -1397,6 +1414,10 @@ string factor(void)
     } else {
         parseError(current.getLineNum(), current.getValue());
     }
+    if (factorType == "DECIMAL")
+        factorType = "REAL";
+    else if (factorType == "NUMBER")
+        factorType = "INT";
     return factorType;
 }
 
@@ -1449,16 +1470,18 @@ void unary(void)
     }
 }
 
-void lval(void)
+string lval(void)
 {
     // <lval> -> IDENTIFIER <qualifier>
-
+    string name = "";
     if (current.getToken() == "IDENTIFIER") {
+        name = current.getValue();
         current = getNext();
         qualifier();
     } else {
         parseError(current.getLineNum(), current.getValue());
     }
+    return name;
 }
 
 void func_ref(void) {

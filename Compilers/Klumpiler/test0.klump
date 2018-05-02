@@ -19,9 +19,9 @@ procedure main;
             list : myArr;
 
 begin { main }
-    x := i + i;
-    x := i % x;
-    r := r * r2;
+writeln('hey');
+      writeln(i);
+      writeln(s);
 end {main}
 
 .

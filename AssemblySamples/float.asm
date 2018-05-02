@@ -13,8 +13,12 @@ _main:
   mov ebx, [result+4]
 	push	dword [result+4]
   push dword [result]
-	        push    dword str		; address of format string
-	        call    _printf			; Call C function
+  push dword str
+  jmp before
+before: 
+	call    _printf			; Call C function
+  jmp after
+after:  
 	add     esp, 12			; pop stack 3*4 bytes
   jmp _exit
 _exit:  
@@ -36,3 +40,5 @@ x:  dq 1.5
 y:  dq -6.6
 i:  dd 5                        
 str: db "%f", 10, 0
+cstr: db "Hello world"
+formatStr: db "%s", 0
