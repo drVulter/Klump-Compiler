@@ -10,92 +10,13 @@ _main:   	 ; Begin MAIN
 	push ebp 	 ; Save base pointer
 	mov ebp, esp 	 ; new base
 	sub esp, 92 	 ; Reserve memory for local variables
-	add esp, -4 	 ; Stack fix
-	push dword [I] 	 ; Emitting a variable
-;; Writing an INT
-	push dword _intStr 
-	call _printf 	 ; Make the call
-	add esp, 12 	 ; stack fixed
-;; Now FLUSH!
-	sub esp, 8 
-	push dword 0 	 ; flush all buffers to stdout
-	call _fflush 	 ; make the call
-	add esp, 12 	 ; Clean up stack
-;; Printing a linebreak
-	push ebp 
-	mov ebp, esp 
-	push dword _NEW_LINE_ 	 ; pushing line break
-	push dword _strStr 
-	call _printf 	 ; Make the call
-	add esp, 8 	 ; Fix stack
-	mov esp, ebp 
-	pop ebp 	 ; Stack frame restored
-	add esp, -4 	 ; Stack fix
-	push dword _L_0_ 	 ; Emitting a STRING var
-;; Writing a STRING
-	push dword _strStr 
-	call _printf 	 ; Make the call
-	add esp, 12 	 ; stack fixed
-;; Now FLUSH!
-	sub esp, 8 
-	push dword 0 	 ; flush all buffers to stdout
-	call _fflush 	 ; make the call
-	add esp, 12 	 ; Clean up stack
-;; Printing a linebreak
-	push ebp 
-	mov ebp, esp 
-	push dword _NEW_LINE_ 	 ; pushing line break
-	push dword _strStr 
-	call _printf 	 ; Make the call
-	add esp, 8 	 ; Fix stack
-	mov esp, ebp 
-	pop ebp 	 ; Stack frame restored
-	add esp, -4 	 ; Stack fix
+	push dword [_L_0_] 	 ; Emitting a variable
+;; Assignment
+	pop dword eax 
+	mov [NUM], eax 	 ; make the move
 	fld qword [_L_1_] 	 ; Emitting a real variable
-;; Writing a REAL
-	add esp, 4 	 ; Stack fix
-	fstp qword [_TEMP_REAL_] 	 ; Put the real in temporary storage
-	push dword [_TEMP_REAL_+4] 
-	push dword [_TEMP_REAL_] 
-	push dword _realStr 	 ; string for formatting
-	call _printf 	 ; Make the call
-	add esp, 12 	 ; Fix the stack
-;; Now FLUSH!
-	sub esp, 8 
-	push dword 0 	 ; flush all buffers to stdout
-	call _fflush 	 ; make the call
-	add esp, 12 	 ; Clean up stack
-;; Printing a linebreak
-	push ebp 
-	mov ebp, esp 
-	push dword _NEW_LINE_ 	 ; pushing line break
-	push dword _strStr 
-	call _printf 	 ; Make the call
-	add esp, 8 	 ; Fix stack
-	mov esp, ebp 
-	pop ebp 	 ; Stack frame restored
-	add esp, -4 	 ; Stack fix
-	push dword S 	 ; Emitting a STRING var
-;; Writing a STRING
-	push dword _strStr 
-	call _printf 	 ; Make the call
-	add esp, 12 	 ; stack fixed
-;; Now FLUSH!
-	sub esp, 8 
-	push dword 0 	 ; flush all buffers to stdout
-	call _fflush 	 ; make the call
-	add esp, 12 	 ; Clean up stack
-	add esp, -4 	 ; Stack fix
-	push dword [I] 	 ; Emitting a variable
-;; Writing an INT
-	push dword _intStr 
-	call _printf 	 ; Make the call
-	add esp, 12 	 ; stack fixed
-;; Now FLUSH!
-	sub esp, 8 
-	push dword 0 	 ; flush all buffers to stdout
-	call _fflush 	 ; make the call
-	add esp, 12 	 ; Clean up stack
+;; Assignment
+	fstp qword [Y] 
 	add esp, -4 	 ; Stack fix
 	push dword _L_2_ 	 ; Emitting a STRING var
 ;; Writing a STRING
@@ -108,11 +29,7 @@ _main:   	 ; Begin MAIN
 	call _fflush 	 ; make the call
 	add esp, 12 	 ; Clean up stack
 	add esp, -4 	 ; Stack fix
-	fld qword [_L_3_] 	 ; Emitting a real variable
-;; Negation
-	fld qword [_NEGATIVE_] 
-;; Emitting a mulop (*)
-	fmul  	 ; result stored in floating point stack
+	fld qword [Y] 	 ; Emitting a real variable
 ;; Writing a REAL
 	add esp, 4 	 ; Stack fix
 	fstp qword [_TEMP_REAL_] 	 ; Put the real in temporary storage
@@ -135,8 +52,96 @@ _main:   	 ; Begin MAIN
 	add esp, 8 	 ; Fix stack
 	mov esp, ebp 
 	pop ebp 	 ; Stack frame restored
+	fld qword [Y] 	 ; Emitting a real variable
+	push dword [_L_0_] 	 ; Emitting an integer literal
+	pop dword [_TEMP_INT_] 	 ; put integer operand into temporary storage
+	fild dword [_TEMP_INT_] 	 ; then put that value onto floating point stack
+;; Emitting an addop (+)
+	fadd  	 ; Addop, result on floating point stack
+;; Assignment
+	fstp qword [Y] 
 	add esp, -4 	 ; Stack fix
-	fld qword [R] 	 ; Emitting a real variable
+	push dword _L_3_ 	 ; Emitting a STRING var
+;; Writing a STRING
+	push dword _strStr 
+	call _printf 	 ; Make the call
+	add esp, 12 	 ; stack fixed
+;; Now FLUSH!
+	sub esp, 8 
+	push dword 0 	 ; flush all buffers to stdout
+	call _fflush 	 ; make the call
+	add esp, 12 	 ; Clean up stack
+	add esp, -4 	 ; Stack fix
+	fld qword [Y] 	 ; Emitting a real variable
+;; Writing a REAL
+	add esp, 4 	 ; Stack fix
+	fstp qword [_TEMP_REAL_] 	 ; Put the real in temporary storage
+	push dword [_TEMP_REAL_+4] 
+	push dword [_TEMP_REAL_] 
+	push dword _realStr 	 ; string for formatting
+	call _printf 	 ; Make the call
+	add esp, 12 	 ; Fix the stack
+;; Now FLUSH!
+	sub esp, 8 
+	push dword 0 	 ; flush all buffers to stdout
+	call _fflush 	 ; make the call
+	add esp, 12 	 ; Clean up stack
+;; Printing a linebreak
+	push ebp 
+	mov ebp, esp 
+	push dword _NEW_LINE_ 	 ; pushing line break
+	push dword _strStr 
+	call _printf 	 ; Make the call
+	add esp, 8 	 ; Fix stack
+	mov esp, ebp 
+	pop ebp 	 ; Stack frame restored
+	fld qword [_L_4_] 	 ; Emitting a real variable
+;; Assignment
+	fstp qword [Y] 
+	add esp, -4 	 ; Stack fix
+	push dword _L_5_ 	 ; Emitting a STRING var
+;; Writing a STRING
+	push dword _strStr 
+	call _printf 	 ; Make the call
+	add esp, 12 	 ; stack fixed
+;; Now FLUSH!
+	sub esp, 8 
+	push dword 0 	 ; flush all buffers to stdout
+	call _fflush 	 ; make the call
+	add esp, 12 	 ; Clean up stack
+	add esp, -4 	 ; Stack fix
+	push dword [NUM] 	 ; Emitting a variable
+;; Writing an INT
+	push dword _intStr 
+	call _printf 	 ; Make the call
+	add esp, 12 	 ; stack fixed
+;; Now FLUSH!
+	sub esp, 8 
+	push dword 0 	 ; flush all buffers to stdout
+	call _fflush 	 ; make the call
+	add esp, 12 	 ; Clean up stack
+;; Printing a linebreak
+	push ebp 
+	mov ebp, esp 
+	push dword _NEW_LINE_ 	 ; pushing line break
+	push dword _strStr 
+	call _printf 	 ; Make the call
+	add esp, 8 	 ; Fix stack
+	mov esp, ebp 
+	pop ebp 	 ; Stack frame restored
+	add esp, -4 	 ; Stack fix
+	push dword _L_6_ 	 ; Emitting a STRING var
+;; Writing a STRING
+	push dword _strStr 
+	call _printf 	 ; Make the call
+	add esp, 12 	 ; stack fixed
+;; Now FLUSH!
+	sub esp, 8 
+	push dword 0 	 ; flush all buffers to stdout
+	call _fflush 	 ; make the call
+	add esp, 12 	 ; Clean up stack
+	add esp, -4 	 ; Stack fix
+	fld qword [Y] 	 ; Emitting a real variable
 ;; Writing a REAL
 	add esp, 4 	 ; Stack fix
 	fstp qword [_TEMP_REAL_] 	 ; Put the real in temporary storage
@@ -172,6 +177,9 @@ _exit_main:
 
 section .bss
 	_TEMP_REAL_: resb 8 	 ; Temporary storage for reals
+	NUM: resb 4
+	STR: resb 0
+	Y: resb 8
 	_TEMP_INT_: resb 4
 
 section .data
@@ -184,15 +192,14 @@ _NEGATIVE_: dq -1.0  	 ; Just negative one
 	R: dq 5.6
 	R2: dq 6.5
 	S: db 'hello world', 0
-	_L_0_: db 'here is a literal string', 0
-	_L_2_: db 'literal string', 0
-	_L_3_: dq 2.4
-	_L_1_: dq 5.4
-TESTING
-I INT 12 
-NUM 
-R REAL 5.6 
-R2 REAL 6.5 
-S STRING 'hello world', 0 
-Y 
-_TEMP_INT_ INT
+	_L_6_: db 'finally y is ', 0
+.len: equ $ - _L_6_ 	 ; Length in bytes
+	_L_5_: db 'num: ', 0
+.len: equ $ - _L_5_ 	 ; Length in bytes
+	_L_2_: db 'y is ', 0
+.len: equ $ - _L_2_ 	 ; Length in bytes
+	_L_3_: db 'y is now ', 0
+.len: equ $ - _L_3_ 	 ; Length in bytes
+	_L_0_: dd 4
+	_L_4_: dq 5.0
+	_L_1_: dq 6.7

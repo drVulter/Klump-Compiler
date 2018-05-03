@@ -8,11 +8,9 @@ _main:
   fild dword [integer]
   fld qword [y]
   fdiv 
-  fstp qword [result]
-  mov eax, [result]
-  mov ebx, [result+4]
-	push	dword [result+4]
-  push dword [result]
+  fstp dword [integer]
+  add esp, -4
+  push dword [integer]
   push dword str
   jmp before
 before: 

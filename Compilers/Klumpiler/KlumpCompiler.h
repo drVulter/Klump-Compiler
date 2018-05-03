@@ -62,6 +62,7 @@ string makeLabel(void)
 
 bool promote(string emp, string boss, string address)
 {
+
     // try to promote emp type to boss type
     bool promoted = true; // assume worked at first
     if (emp == boss) {
@@ -83,6 +84,16 @@ bool promote(string emp, string boss, string address)
         promoted = false;
     }
     return promoted;
+}
+
+bool demote(string from, string to)
+{
+    bool demoted = true;
+    if (from == to) {
+        ;
+    } else if ((from == "REAL") && (to == "INT")) {
+        
+    }
 }
 // emit a line of assembly language
 void emitLine(string label, string opcode, string operands, string comment)
@@ -303,7 +314,20 @@ void emitWriteln(void)
 
 void emitAssignment(string var, string type)
 {
-
+    comment("Assignment");
+    if ((type == "INT")) {
+        emitLine("", "pop dword", "eax", "");
+        //emitLine("", "mov", "_TEMP_INT_", "Move to temp storage");
+        emitLine("", "mov", var + ", eax", "make the move");
+    } else if (type == "STRING") {
+        emitLine("", "pop dword", "esi", "Source");
+        emitLine("", "mov", "edi, " + var, "Destination");
+        emitLine("", "mov", "ecx, " + var + ".len", "length");
+        emitLine("", "cld", "", "");
+        emitLine("", "rep", "movsb", "Do the move");
+    } else if (type == "REAL") {
+        emitLine("", "fstp qword", var, "");
+    }
 }
 void emitNumber(string num)
 {
@@ -434,18 +458,6 @@ bool emitNeg(string type)
     return success;
 }
 
-void emitAssignment(string var)
-{
-    /*
-      assigns eax to var, assuming the expression result is on top of stack
-
-      pop eax
-      mov [<var] eax
-    */
-    comment("Emitting an assignment.");
-    cout << "pop eax\n";
-    cout << "mov [" << var << "], eax\n";
-}
 
 /* ******************************************************** */
 void emitBss(set<GSTMember> &vars, set<GTTMember> &types)
@@ -501,6 +513,8 @@ void emitData(set<GSTMember> &consts, set<GLTMember> &literals)
     for (GLTMember literal : literals) {
         cout << "\t" << literal.label << ": " << sizes[literal.type] << " " <<
             literal.value << endl;
+        if (literal.type == "STRING")
+            emitLine(".len", "equ", "$ - " + literal.label, "Length in bytes");
     }
 }
 

@@ -12,6 +12,7 @@ global
     dcl
 num : int;
     y : real;
+    str : cstring;
 
 procedure main;
 
@@ -20,11 +21,15 @@ procedure main;
             list : myArr;
 
 begin { main }
-writeln(i);
-writeln('here is a literal string');
-writeln(5.4);
-writeln(s, i, 'literal string', -2.4);
-writeln(r);
+num := 4;
+y := 6.7;
+
+writeln('y is ', y);
+y := y + 4;
+writeln('y is now ', y);
+y := 5.0;
+writeln('num: ', num);
+writeln('finally y is ', y);
 end {main}
 
 .

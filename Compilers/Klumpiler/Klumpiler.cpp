@@ -222,13 +222,8 @@ void klump_program(Lexeme c)
     global_definitions();
     procedure_list();
     back(); // wrap up main
+    
     /*
-    for (const GSTMember &member : GST) {
-        if (member.isConst)
-            cout << member.id << " " << member.type << " " << member.value << " " << endl;
-        else
-            cout << member.id << " " << member.type << endl;
-    }
     cout << "\ntypes" << endl;
     for (const GTTMember &member : GTT) {
         if (member.structure == "ARRAY")
@@ -251,7 +246,7 @@ void klump_program(Lexeme c)
     */
     // write .data and .bss sections
     emitBss(GST, GTT); // need GTT for sizes of variables
-    emitData(GST, GLT); // emit global constants and literals 
+    emitData(GST, GLT); // emit global constants and literals
     //end_pal();
     // make sure we have "." at the end
     //if (current.getToken() != ".")
@@ -530,6 +525,8 @@ void dcl_list(bool isGlobal)
         if (current.getToken() == ":") {
             current = getNext();
             string varType = current.getValue();
+            if (varType == "CSTRING")
+                varType = "STRING";
             dcl_type();
             if (current.getToken() == ";") {
                 current = getNext();
@@ -537,7 +534,7 @@ void dcl_list(bool isGlobal)
                 if (isGlobal) {
                     GSTMember var;
                     var.id = varName;
-                    var.type = types[varType];
+                    var.type = varType;
                     var.isConst = false;
                     GST.insert(var);
                 } else {
@@ -721,7 +718,8 @@ void actual_arg_list(string caller)
         while (current.getToken() == ",") {
             current = getNext();
             modStack(-4);
-            emitWrite(expression());
+            type = expression();
+            emitWrite(type);
         }
     } else {
         argStack.push_back(actual_arg());
@@ -1008,18 +1006,58 @@ void assignment_statement(void)
     // <assignment_statement> -> <lval> := <expression> ;
 
     //string nameStr = val(); // Save the name!!
-    LSTMember tempLST; tempLST.id = lval();
+    string name;
+    string lType; // type being assigned to 
+    string id = lval();
+    LSTMember tempLST; tempLST.id = id;
     set<LSTMember>:: iterator it = LST.find(tempLST);
+    // first check LST
     if (it != LST.end()) {
         // found!
-        
+        name = "[ebp+" + (*it).offset + "]";
+        lType = (*it).type;
+    } else {
+        // check GST
+        GSTMember tempGST; tempGST.id = id;
+        set<GSTMember>:: iterator it = GST.find(tempGST);
+        if (it != GST.end()) {
+            // found!
+            if ((*it).isConst) {
+                semanticError(current.getLineNum(), "Cannot overwrite a constant!");
+            } else {
+                name = "[" + (*it).id + "]";
+                lType = (*it).type;
+            }
+        } else {
+            // can't find it!
+            semanticError(current.getLineNum(), "Cannot find " + name + "!");
+        }
     }
     if (current.getToken() == ":=") {
         current = getNext();
-        string type = expression();
+        string rType = expression();
         if (current.getToken() == ";") {
             // emit the statement
-            //emitAssignment(name, type);
+            if (rType == lType) {
+                
+            } else if (lType > rType) {
+                // promote rType
+                if (promote(rType, lType, "esp")) {
+                    emitAssignment(name, lType);
+                } else {
+                    semanticError(current.getLineNum(), "cannot promote " + rType + "->" + lType);
+                }
+            } else {
+                // demote rType
+                //if (demote(rType, lType)) {
+                //    emitAssignment(lType);
+                //} else {
+                    semanticError(current.getLineNum(), "cannot demote " + rType + "->" + lType);
+                    //}
+            }
+            string type = typeCheck(rType, lType);
+
+            emitAssignment(name, type);
             current = getNext();
         } else {
             parseError(current.getLineNum(), current.getValue());
@@ -1316,7 +1354,6 @@ string simple_expression(void)
     bool isNeg = unary();
     string seType = term(); // type of the simple expression
     if (isNeg) {
-        cout << "TESTING" << seType << endl;
         bool success = emitNeg(seType);
         if (!success) {
             semanticError(current.getLineNum(), "Cannot negate a non-number!");
