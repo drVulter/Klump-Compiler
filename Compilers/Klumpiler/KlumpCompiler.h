@@ -33,15 +33,16 @@ void emitGoto(LLTMember label);
 void emitEmptyStatement(void);
 void emitWrite(string type);
 void emitWriteln(void);
+void emitRead(string type);
 void emitAssignment(string var, string type);
 void emitMulop(string opCode, string type);
 void emitAddop(string opCode, string type);
 bool emitNeg(string type);
-void emitNumber(string num); 
+void emitNumber(string num);
 void emitVar(string var, string type);
 void emitLiteral(string label, string type);
 void emitBss(set<GSTMember> &vars, set<GTTMember> &types);
-void emitData(set<GSTMember> &consts, set<GLTMember> &literals); 
+void emitData(set<GSTMember> &consts, set<GLTMember> &literals);
 
 using namespace std;
 
@@ -92,7 +93,7 @@ bool demote(string from, string to)
     if (from == to) {
         ;
     } else if ((from == "REAL") && (to == "INT")) {
-        
+
     }
 }
 // emit a line of assembly language
@@ -121,7 +122,7 @@ void emitLine(string label, string opcode, string operands, string comment)
 
 void emitNewLine(void)
 {
-    
+
 }
 
 void modStack(int n)
@@ -132,7 +133,7 @@ void modStack(int n)
 // emits an assembly language comment
 void comment(string s)
 {
-    // possibly remove newline? 
+    // possibly remove newline?
     cout << ";; " << s << "\n";
 }
 
@@ -151,7 +152,7 @@ void front(void)
       _main:
       ;; set up stack frame
       push ebp
-      mov ebp, esp 
+      mov ebp, esp
      */
 
     // possibly move these to separate function??
@@ -228,7 +229,7 @@ void emitGoto(LLTMember label)
       Assembly goto
       jmp label
      */
-    emitLine("", "jmp", label.intLabel, ""); 
+    emitLine("", "jmp", label.intLabel, "");
 }
 
 void emitEmptyStatement(void)
@@ -266,7 +267,7 @@ void emitWrite(string type)
             emitLine("", "push dword", "_realStr", "string for formatting");
             emitLine("", "call", "_printf", "Make the call");
             emitLine("", "add", "esp, 12", "Fix the stack");
-        
+
         } else {
             string typeStr; // formatting string
             string arg; // actual pushed arg
@@ -310,6 +311,26 @@ void emitWriteln(void)
     emitLine("", "mov", "esp, ebp", "");
     emitLine("", "pop", "ebp", "Stack frame restored");
     // no need to FLUSH
+}
+
+void emitRead(string type)
+{
+	/*
+		Assume that
+		add esp, -4
+		push dword <VAR>
+		have already been emitted
+	*/
+	comment("Read!");
+	if (type == "INT") {
+		emitLine("", "push dword", "_INT_IN_", "temp storage");
+	} else if (type == "REAL") {
+		emitLine("", "push dword", "_REAL_IN_", "temp storage");
+	} else {
+		// shouldn't happen
+	}
+	emitLine("", "call", "_scanf", "Make the call");
+	emitLine("", "add", "esp, 12", "Fix the stack");
 }
 
 void emitAssignment(string var, string type)
