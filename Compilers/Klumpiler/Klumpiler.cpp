@@ -711,9 +711,10 @@ void actual_arg_list(string caller)
 {
     // <actual_arg_list> -> <actual_arg> { , <actual_arg> }*
     vector<string> argStack; // will hold types of the arguments, args themleves already on x8086 STACK
-    if ((caller == "READ") || (caller == "WRITE")) {
+    string type;
+    if ((caller == "WRITE")) {
         modStack(-4);
-        string type = expression();
+        type = expression();
         emitWrite(type);
         while (current.getToken() == ",") {
             current = getNext();
@@ -721,6 +722,17 @@ void actual_arg_list(string caller)
             type = expression();
             emitWrite(type);
         }
+    } else if (caller == "READ") {
+        modStack(-4);
+        type = expression();
+        emitRead(type);
+        while (current.getToken() == ",") {
+            current = getNext();
+            modStack(-4);
+            type = expression();
+            emitRead(type);
+            //cout << "TEST" << current.getValue() << endl;
+        } 
     } else {
         argStack.push_back(actual_arg());
         while (current.getToken() == ",") {

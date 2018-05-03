@@ -160,6 +160,7 @@ void front(void)
     blankLine();
     emitLine("", "global _main", "", "Entry point");
     emitLine("", "extern _printf", "", "Output");
+    emitLine("", "extern _scanf", "", "Input");
     emitLine("", "extern _fflush", "", "Flush buffers to stdout");
     blankLine();
     comment("TEXT Section");
@@ -521,6 +522,9 @@ void emitData(set<GSTMember> &consts, set<GLTMember> &literals)
     cout << "\t_strStr: db \"%s\", 0\n";
     emitLine("", "_NEW_LINE_: db", "10, 0", "Just a carriage return");
     emitLine("_NEGATIVE_", "dq -1.0", "", "Just negative one");
+    // reading
+    emitLine("_INT_IN_", "db \"%i\", 0", "", "");
+    emitLine("_REAL_IN_", "db \"%lf\", 0", "", "");
     // emit the constants
     for (GSTMember konst : consts) {
         if (konst.isConst) {
