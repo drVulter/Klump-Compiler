@@ -25,7 +25,6 @@ void parseError(int lineNum, string s)
 	 << "\'.\n";
     exit(EXIT_FAILURE);
 }
-
 void semanticError(int lineNum, string s)
 {
     // prints line number and an error message

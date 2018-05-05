@@ -116,7 +116,7 @@ map<string,string> types =
 // predefined ATOMIC TYPES
 set<string> atomicTypes =
 {
-    "INT", "REAL", "CSTRING", "BOOL"
+    "INT", "REAL", "STRING", "BOOL"
 };
 
 int main(void)
@@ -182,7 +182,7 @@ string typeCheck(string a, string b)
                 }
             } else {
                 // need demotion
-                if (promote(a, b, "rsp")) {
+                if (demote(a, b)) {
                     return b;
                 } else {
                     semanticError(current.getLineNum(), "Cannot promote " + a + "->" + b + "!");
@@ -1050,6 +1050,7 @@ void assignment_statement(void)
         string rType = expression();
         if (current.getToken() == ";") {
             // emit the statement
+            
             if (rType == lType) {
                 
             } else if (lType > rType) {
@@ -1061,15 +1062,14 @@ void assignment_statement(void)
                 }
             } else {
                 // demote rType
-                //if (demote(rType, lType)) {
-                //    emitAssignment(lType);
-                //} else {
+                if (demote(rType, lType)) {
+                    emitAssignment(name, lType);
+                } else {
                     semanticError(current.getLineNum(), "cannot demote " + rType + "->" + lType);
-                    //}
+                }
             }
-            string type = typeCheck(rType, lType);
-
-            emitAssignment(name, type);
+            //string type = typeCheck(rType, lType);
+            //emitAssignment(name, type);
             current = getNext();
         } else {
             parseError(current.getLineNum(), current.getValue());

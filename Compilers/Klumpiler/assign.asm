@@ -12,9 +12,10 @@ _main:   	 ; Begin MAIN
 	sub esp, 92 	 ; Reserve memory for local variables
 	push dword _L_0_ 	 ; Emitting a STRING var
 ;; Assignment
-	pop dword esi
+	pop dword [_TEMP_STR_]
+  mov ecx, 1000
+  mov esi, [_TEMP_STR_]
 	mov edi, STR 	 ; make the move
-  mov ecx, _L_0_.len
   	cld
 	rep movsb ; fast!
 	add esp, -4 	 ; Stack fix
@@ -53,7 +54,9 @@ section .bss
 	NUM: resb 4
 	STR: resb 0
 	Y: resb 8
-	_TEMP_INT_: resb 4
+_TEMP_INT_: resb 4
+_TEMP_STR_:  resb 8
+  .len equ $ - _TEMP_STR_
 
 section .data
 	_intStr: db "%d", 0

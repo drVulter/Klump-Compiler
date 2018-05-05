@@ -10,13 +10,14 @@
 _main:   	 ; Begin MAIN
 	push ebp 	 ; Save base pointer
 	mov ebp, esp 	 ; new base
-	sub esp, 4 	 ; Reserve memory for local variables
-	add esp, -4 	 ; Stack fix
-	push dword [M] 	 ; Emitting a variable
-;; Read!
-	push dword _INT_IN_ 	 ; temp storage
-	call _scanf 	 ; Make the call
-	add esp, 12 	 ; Fix the stack
+	sub esp, 12 	 ; Reserve memory for local variables
+	fld qword [_L_0_] 	 ; Emitting a real variable
+	fstp qword [_TEMP_REAL_] 	 ; pop into temp storage
+	cvtsd2si eax, [_TEMP_REAL_] 	 ; Convert the heathen
+	push eax 	 ; Put back onto stack
+;; Assignment
+	pop dword eax 
+	mov [M], eax 	 ; make the move
 	add esp, -4 	 ; Stack fix
 	push dword [M] 	 ; Emitting a variable
 ;; Writing an INT
@@ -38,7 +39,7 @@ _main:   	 ; Begin MAIN
 	mov esp, ebp 
 	pop ebp 	 ; Stack frame restored
 _EXIT_MAIN:   	 ; End of MAIN
-	add esp, 4 	 ; Deallocate local memory
+	add esp, 20 	 ; Deallocate local memory
 	mov ebp, esp 
 	pop ebp 	 ; Fix stack
 ;; Exit
@@ -51,8 +52,7 @@ _exit_main:
 section .bss
 	_TEMP_REAL_: resb 8 	 ; Temporary storage for reals
 	M: resb 4
-	STR: resb 0
-	X: resb 8
+	Y: resb 8
 	_TEMP_INT_: resb 4
 
 section .data
@@ -63,5 +63,7 @@ section .data
 _NEGATIVE_: dq -1.0  	 ; Just negative one
 _INT_IN_: db "%i", 0  
 _REAL_IN_: db "%lf", 0  
-	N: dd 100
-	R: dq 5.6
+	N: dd 12
+	S: db 'hello ', 0
+	X: dq 12.6
+	_L_0_: dq 12.8

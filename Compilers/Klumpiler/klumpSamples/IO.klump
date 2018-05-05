@@ -12,9 +12,8 @@ procedure main;
 
 begin {main}
 
-      write('please enter an integer ');
       read(m);
-      writeln('right back atcha: ', m);
+      writeln(m);
 
 end {main}
 .

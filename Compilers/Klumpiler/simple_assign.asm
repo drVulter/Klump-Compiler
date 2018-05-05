@@ -2,6 +2,7 @@
 
 	global _main  	 ; Entry point
 	extern _printf  	 ; Output
+	extern _scanf  	 ; Input
 	extern _fflush  	 ; Flush buffers to stdout
 
 ;; TEXT Section
@@ -95,11 +96,14 @@ _main:   	 ; Begin MAIN
 	add esp, 8 	 ; Fix stack
 	mov esp, ebp 
 	pop ebp 	 ; Stack frame restored
-	fld qword [_L_4_] 	 ; Emitting a real variable
-;; Assignment
-	fstp qword [Y] 
 	add esp, -4 	 ; Stack fix
-	push dword _L_5_ 	 ; Emitting a STRING var
+	push dword [NUM] 	 ; Emitting a variable
+;; Read!
+	push dword _INT_IN_ 	 ; temp storage
+	call _scanf 	 ; Make the call
+	add esp, 12 	 ; Fix the stack
+	add esp, -4 	 ; Stack fix
+	push dword _L_4_ 	 ; Emitting a STRING var
 ;; Writing a STRING
 	push dword _strStr 
 	call _printf 	 ; Make the call
@@ -130,7 +134,7 @@ _main:   	 ; Begin MAIN
 	mov esp, ebp 
 	pop ebp 	 ; Stack frame restored
 	add esp, -4 	 ; Stack fix
-	push dword _L_6_ 	 ; Emitting a STRING var
+	push dword _L_5_ 	 ; Emitting a STRING var
 ;; Writing a STRING
 	push dword _strStr 
 	call _printf 	 ; Make the call
@@ -188,18 +192,19 @@ section .data
 	_strStr: db "%s", 0
 	_NEW_LINE_: db 10, 0 	 ; Just a carriage return
 _NEGATIVE_: dq -1.0  	 ; Just negative one
+_INT_IN_: db "%i", 0  
+_REAL_IN_: db "%lf", 0  
 	I: dd 12
 	R: dq 5.6
 	R2: dq 6.5
 	S: db 'hello world', 0
-	_L_6_: db 'finally y is ', 0
-.len: equ $ - _L_6_ 	 ; Length in bytes
-	_L_5_: db 'num: ', 0
+	_L_5_: db 'finally y is ', 0
 .len: equ $ - _L_5_ 	 ; Length in bytes
+	_L_4_: db 'num: ', 0
+.len: equ $ - _L_4_ 	 ; Length in bytes
 	_L_2_: db 'y is ', 0
 .len: equ $ - _L_2_ 	 ; Length in bytes
 	_L_3_: db 'y is now ', 0
 .len: equ $ - _L_3_ 	 ; Length in bytes
 	_L_0_: dd 4
-	_L_4_: dq 5.0
 	_L_1_: dq 6.7

@@ -93,8 +93,11 @@ bool demote(string from, string to)
     if (from == to) {
         ;
     } else if ((from == "REAL") && (to == "INT")) {
-
+        emitLine("", "fstp qword", "[_TEMP_REAL_]", "pop into temp storage");
+        emitLine("", "cvtsd2si", "eax, [_TEMP_REAL_]", "Convert the heathen");
+        emitLine("", "push", "eax", "Put back onto stack");
     }
+    return demoted;
 }
 // emit a line of assembly language
 void emitLine(string label, string opcode, string operands, string comment)
@@ -198,7 +201,8 @@ void emitProcHead(GPTMember proc)
     emitLine("", "push", "ebp", "Save base pointer");
     emitLine("", "mov", "ebp, esp", "new base");
     // set up storage
-    int offset = proc.storage + ((proc.storage + 4) % 16);
+    int offset = proc.storage + (12 - (proc.storage % 12));
+    //int offset = proc.storage + ((proc.storage + 4) % 16);
     emitLine("", "sub", "esp, " + to_string(offset), "Reserve memory for local variables");
 }
 
@@ -344,7 +348,9 @@ void emitAssignment(string var, string type)
     } else if (type == "STRING") {
         emitLine("", "pop dword", "esi", "Source");
         emitLine("", "mov", "edi, " + var, "Destination");
-        emitLine("", "mov", "ecx, " + var + ".len", "length");
+        // this is shitty, bad hack, fix later
+        emitLine("", "mov", "ecx, 1000", "mov up to 1000 characters");
+        //emitLine("", "mov", "ecx, " + var + ".len", "length");
         emitLine("", "cld", "", "");
         emitLine("", "rep", "movsb", "Do the move");
     } else if (type == "REAL") {

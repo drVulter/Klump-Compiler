@@ -27,7 +27,7 @@ y := 6.7;
 writeln('y is ', y);
 y := y + 4;
 writeln('y is now ', y);
-y := 5.0;
+read(num);
 writeln('num: ', num);
 writeln('finally y is ', y);
 end {main}

@@ -1,0 +1,21 @@
+global
+
+  const
+    x : 12.6;
+    n : 12;
+    s : 'hello ';
+  dcl
+    y : real;
+    m : int;
+
+procedure main;
+
+          dcl
+            localX : real;
+
+begin {main}
+m := 12.8;
+writeln(m);
+end {main}
+
+.
