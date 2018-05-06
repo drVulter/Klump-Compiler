@@ -24,7 +24,7 @@ _L_1_: nop
 	pop ebx 
 	pop eax 
 	cmp eax, ebx 	 ; make comparison
-	jg _L_5_ 	 ; make the jump
+	jl _L_5_ 	 ; make the jump
 _L_4_: nop  	 ; first since default
 	push 0 	 ; result = FALSE
 	jmp _L_6_ 	 ; move on
@@ -36,6 +36,91 @@ _L_6_:
 	pop eax 	 ; get truth value
 	cmp eax, 1 
 	jne _L_2_ 	 ; not true so ELSE
+	push dword [_L_0_] 	 ; Emitting an integer literal
+;; Assignment
+	pop dword eax 
+	mov [J], eax 	 ; make the move
+;; While statement
+_L_7_: nop  
+	push dword [J] 	 ; Emitting a variable
+	push dword [_L_3_] 	 ; Emitting an integer literal
+;; Comparison
+	pop ebx 
+	pop eax 
+	cmp eax, ebx 	 ; make comparison
+	jl _L_10_ 	 ; make the jump
+_L_9_: nop  	 ; first since default
+	push 0 	 ; result = FALSE
+	jmp _L_11_ 	 ; move on
+_L_10_: nop  
+	push 1 	 ; result = TRUE
+	jmp _L_11_ 
+_L_11_:   
+;; Check for if statement
+	pop eax 	 ; get truth value
+	cmp eax, 1 
+	jne _L_8_ 	 ; not true so ELSE
+	push dword [_L_0_] 	 ; Emitting an integer literal
+;; Assignment
+	pop dword eax 
+	mov [K], eax 	 ; make the move
+;; While statement
+_L_12_: nop  
+	push dword [K] 	 ; Emitting a variable
+	push dword [_L_3_] 	 ; Emitting an integer literal
+;; Comparison
+	pop ebx 
+	pop eax 
+	cmp eax, ebx 	 ; make comparison
+	jl _L_15_ 	 ; make the jump
+_L_14_: nop  	 ; first since default
+	push 0 	 ; result = FALSE
+	jmp _L_16_ 	 ; move on
+_L_15_: nop  
+	push 1 	 ; result = TRUE
+	jmp _L_16_ 
+_L_16_:   
+;; Check for if statement
+	pop eax 	 ; get truth value
+	cmp eax, 1 
+	jne _L_13_ 	 ; not true so ELSE
+	push dword [K] 	 ; Emitting a variable
+	push dword [_L_17_] 	 ; Emitting a variable
+;; Emitting an addop (+)
+	pop ebx 
+	pop eax 
+	add eax, ebx 	 ; Addop!
+	push eax 	 ; Storing result on stack
+;; Assignment
+	pop dword eax 
+	mov [K], eax 	 ; make the move
+	push dword [K] 	 ; Emitting a variable
+	push dword [_L_22_] 	 ; Emitting a variable
+;; Comparison
+	pop ebx 
+	pop eax 
+	cmp eax, ebx 	 ; make comparison
+	je _L_24_ 	 ; make the jump
+_L_23_: nop  	 ; first since default
+	push 0 	 ; result = FALSE
+	jmp _L_25_ 	 ; move on
+_L_24_: nop  
+	push 1 	 ; result = TRUE
+	jmp _L_25_ 
+_L_25_:   
+;; Check for if statement
+	pop eax 	 ; get truth value
+	cmp eax, 1 
+	jne _L_21_ 	 ; not true so ELSE
+;; Begin THEN clause
+_L_20_: nop  
+	jmp _L_13_ 
+;; finsihed so go to done
+	jmp _L_19_ 
+;; Else
+_L_21_: nop  
+	jmp _L_19_ 
+_L_19_: nop  
 	add esp, -4 	 ; Stack fix
 	push dword [I] 	 ; Emitting a variable
 ;; Writing an INT
@@ -47,6 +132,53 @@ _L_6_:
 	push dword 0 	 ; flush all buffers to stdout
 	call _fflush 	 ; make the call
 	add esp, 12 	 ; Clean up stack
+	add esp, -4 	 ; Stack fix
+	push dword [J] 	 ; Emitting a variable
+;; Writing an INT
+	push dword _intStr 
+	call _printf 	 ; Make the call
+	add esp, 12 	 ; stack fixed
+;; Now FLUSH!
+	sub esp, 8 
+	push dword 0 	 ; flush all buffers to stdout
+	call _fflush 	 ; make the call
+	add esp, 12 	 ; Clean up stack
+	add esp, -4 	 ; Stack fix
+	push dword [K] 	 ; Emitting a variable
+;; Writing an INT
+	push dword _intStr 
+	call _printf 	 ; Make the call
+	add esp, 12 	 ; stack fixed
+;; Now FLUSH!
+	sub esp, 8 
+	push dword 0 	 ; flush all buffers to stdout
+	call _fflush 	 ; make the call
+	add esp, 12 	 ; Clean up stack
+	add esp, -4 	 ; Stack fix
+	push dword _L_26_ 	 ; Emitting a STRING var
+;; Writing a STRING
+	push dword _strStr 
+	call _printf 	 ; Make the call
+	add esp, 12 	 ; stack fixed
+;; Now FLUSH!
+	sub esp, 8 
+	push dword 0 	 ; flush all buffers to stdout
+	call _fflush 	 ; make the call
+	add esp, 12 	 ; Clean up stack
+	jmp _L_12_ 	 ; go again
+_L_13_: nop  
+	push dword [J] 	 ; Emitting a variable
+	push dword [_L_17_] 	 ; Emitting an integer literal
+;; Emitting an addop (+)
+	pop ebx 
+	pop eax 
+	add eax, ebx 	 ; Addop!
+	push eax 	 ; Storing result on stack
+;; Assignment
+	pop dword eax 
+	mov [J], eax 	 ; make the move
+	jmp _L_7_ 	 ; go again
+_L_8_: nop  
 ;; Printing a linebreak
 	push ebp 
 	mov ebp, esp 
@@ -57,7 +189,7 @@ _L_6_:
 	mov esp, ebp 
 	pop ebp 	 ; Stack frame restored
 	push dword [I] 	 ; Emitting a variable
-	push dword [_L_7_] 	 ; Emitting a variable
+	push dword [_L_17_] 	 ; Emitting an integer literal
 ;; Emitting an addop (+)
 	pop ebx 
 	pop eax 
@@ -82,6 +214,8 @@ _exit_main:
 section .bss
 	_TEMP_REAL_: resb 8 	 ; Temporary storage for reals
 	I: resb 4
+	J: resb 4
+	K: resb 4
 	_TEMP_INT_: resb 4
 
 section .data
@@ -92,6 +226,9 @@ section .data
 _NEGATIVE_: dq -1.0  	 ; Just negative one
 _INT_IN_: db "%d", 0  
 _REAL_IN_: db "%lf", 0  
+	_L_26_: db ' ', 0
+.len: equ $ - _L_26_ 	 ; Length in bytes
 	_L_0_: dd 0
-	_L_7_: dd 1
+	_L_17_: dd 1
+	_L_22_: dd 2
 	_L_3_: dd 5

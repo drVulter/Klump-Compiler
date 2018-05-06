@@ -1,12 +1,28 @@
 global
   dcl
     i : int;
+    j : int;
+    k : int;
 procedure main;
 begin {main}
+{ NESTED LOOPS DO NOT WORK!!!}
       i := 0;
-      while (i > 5)
+      while (i < 5)
       do;
-        writeln(i);
+        j := 0;
+        while (j < 5)
+        do;
+        k := 0;
+        while (k < 5)
+        do;
+        k := k + 1;
+          if (k = 2) then
+             break;
+          write(i,j,k, ' ');
+        end;
+        j := j + 1;
+        end;
+        writeln;
         i := i + 1;
       end;
 end{main}

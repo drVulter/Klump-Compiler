@@ -119,6 +119,9 @@ set<string> atomicTypes =
     "INT", "REAL", "STRING", "BOOL"
 };
 
+stack<string> startLoopStack;
+stack<string> endLoopStack;
+
 int main(void)
 {
     // Start the scanner
@@ -862,7 +865,7 @@ void label(bool fromGoto)
                 temp.numLabel = (*it).numLabel;
                 temp.intLabel = (*it).intLabel;
                 if (fromGoto) {
-                    emitGoto(*it);
+                    emitGoto((*it).intLabel);
                     temp.referenced = true;
                 } else {
                     temp.defined = true;
@@ -879,7 +882,7 @@ void label(bool fromGoto)
                 if (fromGoto) {
                     temp.referenced = true;
                 //    semanticError(current.getLineNum(), "Label " + number + " not defined!");
-                    emitGoto(temp);
+                    emitGoto(temp.intLabel);
                 } else {
                     temp.defined = true;
                     emitLabel(temp); // actually emit the label
@@ -1261,6 +1264,10 @@ void else_clause(string label, string done)
         emitElse(label);
         statement();
         emitElseEnd(done);
+    } else {
+        // else clause that does nothing
+        emitElse(label);
+        emitGoto(done);
     }
 }
 
@@ -1271,6 +1278,8 @@ void while_statement(void)
     // already gobbled WHILE so...
     string whileStart = makeLabel();
     string whileDone = makeLabel();
+    startLoopStack.push(whileStart);
+    endLoopStack.push(whileDone);
     if (current.getToken() == "(") {
         current = getNext();
         emitWhileStart(whileStart);
@@ -1281,6 +1290,8 @@ void while_statement(void)
             statement();
             emitWhileNext(whileStart);
             emitDone(whileDone);
+            startLoopStack.pop();
+            endLoopStack.pop();
         } else {
             parseError(current.getLineNum(), current.getValue());
         }
@@ -1383,6 +1394,8 @@ void next_statement(void)
 
     // already gobbled NEXT so...
     if (current.getToken() == ";") {
+        string label = startLoopStack.top();
+        emitGoto(label);
         current = getNext();
     } else {
         parseError(current.getLineNum(), current.getValue());
@@ -1395,6 +1408,8 @@ void break_statement(void)
 
     // already gobbled BREAK so...
     if (current.getToken() == ";") {
+        string label = endLoopStack.top();
+        emitGoto(label);
         current = getNext();
     } else {
         parseError(current.getLineNum(), current.getValue());

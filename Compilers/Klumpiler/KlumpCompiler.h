@@ -29,7 +29,7 @@ void back(void);
 void emitProcHead(GPTMember proc);
 void emitProcEnd(GPTMember proc);
 void emitLabel(LLTMember label);
-void emitGoto(LLTMember label);
+void emitGoto(string label);
 void emitEmptyStatement(void);
 void emitWrite(string type);
 void emitWriteln(void);
@@ -239,13 +239,13 @@ void emitLabel(LLTMember label)
     emitLine(label.intLabel, "nop", "", "");
 }
 
-void emitGoto(LLTMember label)
+void emitGoto(string label)
 {
     /*
       Assembly goto
       jmp label
      */
-    emitLine("", "jmp", label.intLabel, "");
+    emitLine("", "jmp", label, "");
 }
 
 void emitEmptyStatement(void)
