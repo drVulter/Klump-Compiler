@@ -65,7 +65,7 @@ void goto_statement(void);
 void empty_statement(void);
 void compound_statement(void);
 void if_statement(void);
-string else_clause(string label, string done);
+void else_clause(string label, string done);
 void while_statement(void);
 void case_statement(void);
 void case_list(void);
@@ -1236,8 +1236,9 @@ void if_statement(void)
             current = getNext();
             if (current.getToken() == "THEN") {
                 current = getNext();
-                emitThen(doneLbl);
+                emitThen(thenLbl);
                 statement();
+                emitThenEnd(doneLbl);
                 else_clause(elseLbl, doneLbl);
                 emitDone(doneLbl);
             } else {
@@ -1251,15 +1252,15 @@ void if_statement(void)
     }
 }
 
-string else_clause(string label, string done)
+void else_clause(string label, string done)
 {
     // <else_clause> -> ELSE <statement> | e
 
     if (current.getToken() == "ELSE") {
         current = getNext();
         emitElse(label);
-        emitElseEnd(done);
         statement();
+        emitElseEnd(done);
     }
 }
 
@@ -1414,11 +1415,11 @@ string comparison(void)
         (current.getToken() == ">=") ||
         (current.getToken() == "<=")) {
         string op = current.getValue();
+        current = getNext();
         string otherType = comparison();
         string type = typeCheck(compType, otherType);
         emitCompop(op, type);
         compType = "BOOL";
-        current = getNext();
     }
     return compType;
 }

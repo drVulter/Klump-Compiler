@@ -38,7 +38,8 @@ void emitReadln(void);
 void emitAssignment(string var, string type);
 void emitCompop(string opCode, string type);
 void emitCheck(string thenLbl, string elseLbl);
-void emitThen(string doneLbl);
+void emitThen(string thenLbl);
+void emitThenEnd(string doneLbl);
 void emitElse(string label);
 void emitElseEnd(string done);
 void emitDone(string label);
@@ -388,8 +389,8 @@ void emitCompop(string op, string type)
     string compDone = makeLabel(); // jump to when finished
     string jump; // type of jump
     if (type == "INT") {
-        emitLine("", "pop", "eax", "");
         emitLine("", "pop", "ebx", "");
+        emitLine("", "pop", "eax", "");
         emitLine("", "cmp", "eax, ebx", "make comparison");
         if (op == "=") {
             jump = "je";
@@ -421,9 +422,16 @@ void emitCheck(string thenLbl, string elseLbl)
     emitLine("", "pop", "eax", "get truth value");
     emitLine("", "cmp", "eax, 1", "");
     emitLine("", "jne", elseLbl, "not true so ELSE");
+    emitLine("", "jmp", thenLbl, "");
 }
 
-void emitThen(string doneLbl)
+void emitThen(string thenLbl)
+{
+    comment("Begin THEN clause");
+    emitLine(thenLbl, "nop", "", "");
+}
+
+void emitThenEnd(string doneLbl)
 {
     comment("finsihed so go to done");
     emitLine("", "jmp", doneLbl, "");
