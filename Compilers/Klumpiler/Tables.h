@@ -53,6 +53,7 @@ struct GPTMember
     vector<parameter> parameters; // list of parameters
     string returnType; // return type
     int storage; // local storage in BYTES
+    string label; // entry label
     bool operator < (const GPTMember &other) const { return id < other.id; }
 };
 /* Entry in GLOBAL LITERAL TABLE */

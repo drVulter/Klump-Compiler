@@ -12,20 +12,12 @@ _main:   	 ; Begin MAIN
 	push ebp 	 ; Save base pointer
 	mov ebp, esp 	 ; new base
 	sub esp, 12 	 ; Reserve memory for local variables
-	fld qword [_L_0_] 	 ; Emitting a real variable
-;; Assignment
-	fstp qword [Y]
-afterAss: 
 	add esp, -4 	 ; Stack fix
-	fld qword [Y] 	 ; Emitting a real variable
-;; Writing a REAL
-	add esp, 4 	 ; Stack fix
-	fstp qword [_TEMP_REAL_] 	 ; Put the real in temporary storage
-	push dword [_TEMP_REAL_+4] 
-	push dword [_TEMP_REAL_] 
-	push dword _realStr 	 ; string for formatting
+	push dword _L_0_ 	 ; Emitting a STRING var
+;; Writing a STRING
+	push dword _strStr 
 	call _printf 	 ; Make the call
-	add esp, 12 	 ; Fix the stack
+	add esp, 12 	 ; stack fixed
 ;; Now FLUSH!
 	sub esp, 8 
 	push dword 0 	 ; flush all buffers to stdout
@@ -40,6 +32,13 @@ afterAss:
 	add esp, 8 	 ; Fix stack
 	mov esp, ebp 
 	pop ebp 	 ; Stack frame restored
+	push dword [_L_1_] 	 ; Emitting a variable
+;; Assignment
+	pop dword eax 
+	mov [ebp-4], eax 	 ; make the move
+;; Call statement
+preCall:
+	call _ENTER_PRINTER 
 _EXIT_MAIN:   	 ; End of MAIN
 	add esp, 12 	 ; Deallocate local memory
 	mov esp, ebp 
@@ -48,11 +47,42 @@ _EXIT_MAIN:   	 ; End of MAIN
 	mov eax, 0x1 
 	sub esp, 4 
 	int 0x80 	 ; Make exit call
+_ENTER_PRINTER:   	 ; Begin PRINTER
+	push ebp 	 ; Save base pointer
+	mov ebp, esp 	 ; new base
+	sub esp, 8 	 ; Reserve memory for local variables
+	push dword [_L_1_] 	 ; Emitting an integer literal
+;; Assignment
+	pop dword eax 
+	mov [ebp-4], eax 	 ; make the move
+	add esp, -4 	 ; Stack fix
+	push dword [ebp - 4] 	 ; Emitting a variable
+;; Writing an INT
+	push dword _intStr 
+	call _printf 	 ; Make the call
+	add esp, 12 	 ; stack fixed
+;; Now FLUSH!
+	sub esp, 8 
+	push dword 0 	 ; flush all buffers to stdout
+	call _fflush 	 ; make the call
+	add esp, 12 	 ; Clean up stack
+;; Printing a linebreak
+	push ebp 
+	mov ebp, esp 
+	push dword _NEW_LINE_ 	 ; pushing line break
+	push dword _strStr 
+	call _printf 	 ; Make the call
+	add esp, 8 	 ; Fix stack
+	mov esp, ebp 
+	pop ebp 	 ; Stack frame restored
+_EXIT_PRINTER:   	 ; End of PRINTER
+	add esp, 12 	 ; Deallocate local memory
+	mov esp, ebp 
+	pop ebp 	 ; Fix stack
+	ret  
 
 section .bss
 	_TEMP_REAL_: resb 8 	 ; Temporary storage for reals
-	M: resb 4
-	Y: resb 8
 	_TEMP_INT_: resb 4
 
 section .data
@@ -63,4 +93,6 @@ section .data
 _NEGATIVE_: dq -1.0  	 ; Just negative one
 _INT_IN_: db "%d", 0  
 _REAL_IN_: db "%lf", 0  
-	_L_0_: dq 12.4
+	_L_0_: db 'check', 0
+.len: equ $ - _L_0_ 	 ; Length in bytes
+	_L_1_: dd 4

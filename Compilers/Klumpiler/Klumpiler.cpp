@@ -119,8 +119,11 @@ set<string> atomicTypes =
     "INT", "REAL", "STRING", "BOOL"
 };
 
-stack<string> startLoopStack;
+stack<string> startLoopStack; // keep track of where you are in nested loops!
 stack<string> endLoopStack;
+
+// labels for returning from call statements
+stack<string> callLabels;
 
 int main(void)
 {
@@ -162,6 +165,7 @@ void initializeTables(void)
     main.id = "MAIN";
     main.parameters = {}; // no parameters
     main.returnType = "VOID"; // returns nothing
+    main.label = "_main";
     GPT.insert(main);
 }
 
@@ -224,7 +228,7 @@ void klump_program(Lexeme c)
     front(); // emit front code
     global_definitions();
     procedure_list();
-    back(); // wrap up main
+    //back(); // wrap up main
 
     /*
     cout << "\ntypes" << endl;
@@ -598,7 +602,7 @@ void proc_declarations(void)
 {
     // <proc_declarations> -> PROC <signature_list> | e
     if (current.getToken() == "PROC") {
-
+        
         current = getNext();
         signature_list();
     }
@@ -610,8 +614,19 @@ void signature_list(void)
     // <signature_list> -> <proc_signature> { ; <proc_signature }*
 
     if (current.getToken() == "IDENTIFIER") {
+        string procName = current.getValue(); // get name of proc
+        GPTMember newProc; newProc.id = procName;
+        if (newProc.id == "MAIN") {
+            newProc.label = "_main";
+        } else {
+            newProc.label = "_ENTER_" + newProc.id;
+        }
         current = getNext();
         proc_signature();
+        GPT.insert(newProc);
+        for (const GPTMember &member : GPT) {
+            //cout << member.id << member.label << endl;
+        }
         if (current.getToken() == ";") {
             // go again
             current = getNext();
@@ -788,7 +803,7 @@ GPTMember proc_head(void)
         current = getNext();
         if (current.getToken() == ";") {
             current = getNext();
-            return currentProc;
+            return (*it);
         } else {
             parseError(current.getLineNum(), current.getValue());
         }
@@ -807,6 +822,7 @@ void proc_body(GPTMember proc)
     proc.storage = getLocalStorage(); // figure out how much local storage necessary
     if (current.getToken() == "BEGIN") {
         current = getNext();
+        //cout << "TESTING " << proc.id << proc.label << endl;
         emitProcHead(proc);
         statement_list();
         if (current.getToken() == "END") {
@@ -1081,7 +1097,7 @@ void assignment_statement(void)
     // first check LST
     if (it != LST.end()) {
         // found!
-        name = "[ebp+" + (*it).offset + "]";
+        name = "[ebp-" + (*it).offset + "]";
         lType = (*it).type;
     } else {
         // check GST
@@ -1139,10 +1155,21 @@ void call_statement(void)
     // <call_statement> -> CALL IDENTIFIER <actual_args> ;
 
     // already have CALL so...
+    string returnLabel = makeLabel();
+    callLabels.push(returnLabel); 
     if (current.getToken() == "IDENTIFIER") {
+        // find the right proc
+        GPTMember temp; temp.id = current.getValue();
+        set<GPTMember>:: iterator it = GPT.find(temp);
+        if (it == GPT.end()) {
+            // not found!
+            semanticError(current.getLineNum(), "Procedure " + current.getValue() + " not defined!");
+        }
         current = getNext();
         actual_args("PROC");
         if (current.getToken() == ";") {
+            //emitGoto((*it).label);
+            emitCall((*it).label);
             current = getNext();
         } else {
             parseError(current.getLineNum(), current.getValue());
@@ -1162,6 +1189,8 @@ void return_statement(void)
         string temp = expression();
         //if (current.getToken() == "]") {
         //current = getNext();
+        string returnLabel = callLabels.top();
+        callLabels.pop();
             if (current.getToken() == ";") {
                 current = getNext();
             } else {
@@ -1532,7 +1561,8 @@ string factor(void)
             if (localIt != LST.end()) {
                 // found!
                 factorType = (*localIt).type;
-                emitVar((*localIt).id, factorType);
+                string idStr = "ebp - " + (*localIt).offset;
+                emitVar(idStr, factorType);
             } else {
                 // then check global symbol table
                 GSTMember globalTemp; globalTemp.id = current.getValue();

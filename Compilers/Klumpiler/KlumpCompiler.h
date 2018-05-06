@@ -26,6 +26,7 @@ void blankLine(void);
 void comment(string s);
 void front(void);
 void back(void);
+void emitCall(string label, string doneLabel);
 void emitProcHead(GPTMember proc);
 void emitProcEnd(GPTMember proc);
 void emitLabel(LLTMember label);
@@ -198,22 +199,25 @@ void back(void)
     emitLine("", "int", "0x80", "Make exit call");
 }
 
+void emitCall(string label)
+{
+    comment("Call statement");
+    emitLine("", "call", label, "");
+}
+
 void emitProcHead(GPTMember proc)
 {
     // emit beginning of procedure
-    string label; // internal label
-    if (proc.id == "MAIN") {
-        label = "_main";
-    } else {
-        label = "_ENTER_" + proc.id;
-    }
+    string label = proc.label; // internal label
+
     emitLine(label, "", "", "Begin " + proc.id);
     // set up the stack
     emitLine("", "push", "ebp", "Save base pointer");
     emitLine("", "mov", "ebp, esp", "new base");
     // set up storage
-    int offset = proc.storage + (12 - (proc.storage % 12));
-    //int offset = proc.storage + ((proc.storage + 4) % 16);
+    int offset = proc.storage + (16 - (proc.storage % 16)) - 4;
+    if (proc.id != "MAIN")
+        offset -= 4;
     emitLine("", "sub", "esp, " + to_string(offset), "Reserve memory for local variables");
 }
 
@@ -221,11 +225,19 @@ void emitProcEnd(GPTMember proc)
 {
     // ESCHATON
     string label = "_EXIT_" + proc.id;
-    int offset = proc.storage + ((proc.storage + 4) % 16);
+    int offset = proc.storage + (16 - (proc.storage % 16)) - 4;
     emitLine(label, "", "","End of " + proc.id);
     emitLine("", "add", "esp, " + to_string(offset), "Deallocate local memory");
-    emitLine("", "mov", "ebp, esp", "");
+    emitLine("", "mov", "esp, ebp", "");
     emitLine("", "pop", "ebp", "Fix stack");
+    if (proc.id != "MAIN") {
+        emitLine("", "ret", "", "");
+    } else {
+        emitLine("", "push", "dword 0", "");
+        emitLine("", "mov", "eax, 0x1", "");
+        emitLine("", "sub", "esp, 4", "");
+        emitLine("", "int", "0x80", "Make exit call");
+    }
 }
 /* ********************** STATEMENTS ********************** */
 

@@ -7,9 +7,8 @@ global
 procedure main;
 
 begin {main}
-
-m := 12;
-writeln(m);
+y := 12.4;
+writeln(y);
 end {main}
 
 .

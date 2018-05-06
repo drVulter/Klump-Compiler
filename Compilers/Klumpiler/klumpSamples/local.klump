@@ -1,0 +1,35 @@
+{test local var stuff}
+global
+
+proc
+  printer;
+  {otherFunc;}
+
+procedure main;
+      dcl
+        x : int;
+
+begin {main}
+      writeln('check');
+      x := 4;
+      call printer;
+end{main}
+
+procedure printer;
+
+dcl
+y : int;
+begin {printer}
+y := 4;
+      writeln(y);
+end {printer}
+
+{procedure otherFunc;
+          dcl
+          x : int;
+begin {otherFunc}
+x := 12;
+      writeln(x);
+end {otherFunc}}
+
+.

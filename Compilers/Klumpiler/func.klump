@@ -1,0 +1,25 @@
+global
+
+proc
+  print;
+
+procedure main;
+      dcl
+        x : int;
+
+begin {main}
+      writeln('check');
+      x := 4;
+      call print;
+end{main}
+
+procedure print;
+
+dcl
+y : int;
+begin {printer}
+y := 2;
+      writeln('test');
+end {printer}
+
+.
