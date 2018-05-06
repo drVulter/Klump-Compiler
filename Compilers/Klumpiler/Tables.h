@@ -92,6 +92,8 @@ struct LLTMember
 {
     string numLabel; // numeric label
     string intLabel; // internal label
+    bool defined;
+    bool referenced;
     bool operator < (const LLTMember &other) const { return numLabel < other.numLabel; }
 };
 

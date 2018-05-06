@@ -56,7 +56,7 @@ void statement_list(void);
 void statement(void);
 void label(bool fromGoto);
 void exec_statement(void);
-void read_statement(void);
+void read_statement(bool isReadln);
 void write_statement(void);
 void assignment_statement(void);
 void call_statement(void);
@@ -65,7 +65,7 @@ void goto_statement(void);
 void empty_statement(void);
 void compound_statement(void);
 void if_statement(void);
-void else_clause(void);
+string else_clause(void);
 void while_statement(void);
 void case_statement(void);
 void case_list(void);
@@ -723,6 +723,7 @@ void actual_arg_list(string caller)
             emitWrite(type);
         }
     } else if (caller == "READ") {
+        /*
         modStack(-4);
         type = expression();
         emitRead(type);
@@ -732,7 +733,7 @@ void actual_arg_list(string caller)
             type = expression();
             emitRead(type);
             //cout << "TEST" << current.getValue() << endl;
-        } 
+            } */
     } else {
         argStack.push_back(actual_arg());
         while (current.getToken() == ",") {
@@ -806,6 +807,12 @@ void proc_body(GPTMember proc)
         emitProcHead(proc);
         statement_list();
         if (current.getToken() == "END") {
+            /* check that labels are okay! */
+            for (const LLTMember &member : LLT) {
+                if (member.referenced && !(member.defined)) {
+                    semanticError(current.getLineNum(), "Label " + member.numLabel + " not defined!");
+                }
+            }
             emitProcEnd(proc);
             current = getNext();
         } else {
@@ -851,24 +858,33 @@ void label(bool fromGoto)
             if (it != LLT.end()) {
                 // found!
                 // check if this is for a goto statement
+                LLTMember temp;
+                temp.numLabel = (*it).numLabel;
+                temp.intLabel = (*it).intLabel;
                 if (fromGoto) {
                     emitGoto(*it);
+                    temp.referenced = true;
                 } else {
+                    temp.defined = true;
                     emitLabel(*it); // emit the found label
                 }
+                LLT.erase(it);
+                LLT.insert(temp);
             } else {
                 // not found, so insert then emit
                 // first check if for goto
                 // do we need to perform error handling if label never defined? possible with one-pass compiler?
                 string label = makeLabel(); // make a new internal label, defined in KlumpCompiler.h
                 temp.intLabel = label; // assign an internal label
-                LLT.insert(temp); // add the new label, numeric label already defined
                 if (fromGoto) {
+                    temp.referenced = true;
                 //    semanticError(current.getLineNum(), "Label " + number + " not defined!");
                     emitGoto(temp);
                 } else {
+                    temp.defined = true;
                     emitLabel(temp); // actually emit the label
                 }
+                LLT.insert(temp); // add the new label, numeric label already defined
             }
         } else {
             parseError(current.getLineNum(), current.getValue());
@@ -904,10 +920,10 @@ void exec_statement(void)
     // there is an option in the applicable statement function
     switch (cases[current.getToken()]) {
     case 0:
-        read_statement();
+        read_statement(false);
         break;
     case 1:
-        read_statement();
+        read_statement(true);
         break;
     case 2:
         write_statement();
@@ -968,19 +984,55 @@ void exec_statement(void)
     }
 }
 
-void read_statement(void)
+void read_statement(bool isReadln)
 {
     /* <read_statement> -> READ <actual_args> ;
        | READLN <actual_args> ;
      */
-
-    if (current.getToken() == "READ") {
+    if ((current.getToken() == "READ") || (current.getToken() == "READLN")) {
         current = getNext();
-        actual_args("READ");
-        if (current.getToken() == ";") {
+        if (current.getToken() == "(") {
             current = getNext();
-        } else {
-            parseError(current.getLineNum(), current.getValue());
+            while (current.getToken() == "IDENTIFIER") {
+                string name = current.getValue();
+                // lookup name in LST, then GST
+                LSTMember tempLST; tempLST.id = name;
+                set<LSTMember>:: iterator it = LST.find(tempLST);
+                if (it != LST.end()) { // found
+                    // implement this!
+                } else {
+                    // check GST
+                    GSTMember tempGST; tempGST.id = name;
+                    set<GSTMember>:: iterator gIter = GST.find(tempGST);
+                    if (gIter != GST.end()) {
+                        if ((*gIter).isConst) {
+                            semanticError(current.getLineNum(), "Cannot overwrite a constant!");
+                        }
+                        emitRead(name, (*gIter).type);
+                    }
+                }
+                current = getNext();
+                if (current.getToken() == ",") {
+                    current = getNext();
+                } else if (current.getToken() == ")") {
+                    ; // nothing 
+                } else {
+                    parseError(current.getLineNum(), current.getValue());
+                }
+            }
+            if (current.getToken() == ")") {
+                current = getNext();
+                if (current.getToken() == ";") {
+                    current = getNext();
+                    if (isReadln)
+                        emitReadln();
+                } else {
+                    parseError(current.getLineNum(), current.getValue());
+                }
+            } else {
+                parseError(current.getLineNum(), current.getValue());
+            }
+
         }
     } else { // safe to use else here?
         current = getNext();
@@ -1174,7 +1226,7 @@ void if_statement(void)
     // already gobbled IF so...
     if (current.getToken() == "(") {
         current = getNext();
-        comparison();
+        string type = comparison();
         if (current.getToken() == ")") {
             current = getNext();
             if (current.getToken() == "THEN") {
@@ -1192,7 +1244,7 @@ void if_statement(void)
     }
 }
 
-void else_clause(void)
+string else_clause(void)
 {
     // <else_clause> -> ELSE <statement> | e
 
@@ -1352,9 +1404,11 @@ string comparison(void)
         (current.getToken() == "<") ||
         (current.getToken() == ">=") ||
         (current.getToken() == "<=")) {
+        string op = current.getValue();
+        string otherType = comparison();
+        string type = typeCheck(compType, otherType);
+        emitCompop(op, type);
         compType = "BOOL";
-        compop(); // don't gobble!
-        comparison();
     }
     return compType;
 }

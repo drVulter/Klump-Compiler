@@ -33,8 +33,10 @@ void emitGoto(LLTMember label);
 void emitEmptyStatement(void);
 void emitWrite(string type);
 void emitWriteln(void);
-void emitRead(string type);
+void emitRead(string name, string type);
+void emitReadln(void);
 void emitAssignment(string var, string type);
+void emitCompop(string opCode, string type);
 void emitMulop(string opCode, string type);
 void emitAddop(string opCode, string type);
 bool emitNeg(string type);
@@ -164,6 +166,7 @@ void front(void)
     emitLine("", "global _main", "", "Entry point");
     emitLine("", "extern _printf", "", "Output");
     emitLine("", "extern _scanf", "", "Input");
+    emitLine("", "extern _getchar", "", "Gobbler");
     emitLine("", "extern _fflush", "", "Flush buffers to stdout");
     blankLine();
     comment("TEXT Section");
@@ -318,7 +321,7 @@ void emitWriteln(void)
     // no need to FLUSH
 }
 
-void emitRead(string type)
+void emitRead(string name, string type)
 {
 	/*
 		Assume that
@@ -327,15 +330,29 @@ void emitRead(string type)
 		have already been emitted
 	*/
 	comment("Read!");
+  emitLine("", "add", "esp, -4", "Pad the stack");
+  emitLine("", "push dword", name, "put variable address on stack");
 	if (type == "INT") {
-		emitLine("", "push dword", "_INT_IN_", "temp storage");
+      emitLine("", "push dword", "_INT_IN_", "temp storage");
 	} else if (type == "REAL") {
-		emitLine("", "push dword", "_REAL_IN_", "temp storage");
+      emitLine("", "push dword", "_REAL_IN_", "temp storage");
 	} else {
-		// shouldn't happen
+      // shouldn't happen
 	}
 	emitLine("", "call", "_scanf", "Make the call");
 	emitLine("", "add", "esp, 12", "Fix the stack");
+}
+
+void emitReadln(void)
+{
+    comment("Readln!");
+    string label = makeLabel();
+    emitLine(label, "", "", "read line loop");
+    emitLine("", "add", "esp, -12", "");
+    emitLine("", "call", "_getchar", "");
+    emitLine("", "add", "esp, 12", "");
+    emitLine("", "cmp", "eax, 0xa", "check for carriage return");
+    emitLine("", "jne", label, "gobble gobble gobble!");
 }
 
 void emitAssignment(string var, string type)
@@ -356,6 +373,41 @@ void emitAssignment(string var, string type)
     } else if (type == "REAL") {
         emitLine("", "fstp qword", var, "");
     }
+}
+
+void emitCompop(string op, string type)
+{
+    comment("Comparison");
+    string resFalse = makeLabel(); // jumped to if true 
+    string resTrue = makeLabel(); // jumped to if false
+    string compDone = makeLabel(); // jump to when finished
+    string jump; // type of jump
+    if (type == "INT") {
+        emitLine("", "pop", eax, "");
+        emitLine("", "pop", ebx, "");
+        emitLine("", "cmp", "eax, ebx", "make comparison");
+        if (op == "=") {
+            jump = "je";
+        } else if (op == "<") {
+            jump = "jl";
+        } else if (op == "<=") {
+            jump = "jle";
+        } else if (op == ">") {
+            jump = "jg";
+        } else if (op == ">=") {
+            jump = "jge";
+        } else if (op == "<>") {
+            jump = "jne";
+        }
+        emitLine("", jump, resTrue, "make the jump");
+    }
+    emitLine(resFalse, "nop", "", "first since default");
+    emitLine("", "push", "0", "result = FALSE");
+    emitLine("", "jmp", compDone, "move on");
+    emitLine(resTrue, "nop", "", "");
+    emitLine("", "push", "1", "result = TRUE");
+    emitLine("", "jmp", compDone, "");
+    emitLine(compDone, "", "", "");
 }
 void emitNumber(string num)
 {
@@ -529,7 +581,7 @@ void emitData(set<GSTMember> &consts, set<GLTMember> &literals)
     emitLine("", "_NEW_LINE_: db", "10, 0", "Just a carriage return");
     emitLine("_NEGATIVE_", "dq -1.0", "", "Just negative one");
     // reading
-    emitLine("_INT_IN_", "db \"%i\", 0", "", "");
+    emitLine("_INT_IN_", "db \"%d\", 0", "", "");
     emitLine("_REAL_IN_", "db \"%lf\", 0", "", "");
     // emit the constants
     for (GSTMember konst : consts) {
