@@ -12,13 +12,14 @@ _main:   	 ; Begin MAIN
 	push ebp 	 ; Save base pointer
 	mov ebp, esp 	 ; new base
 	sub esp, 12 	 ; Reserve memory for local variables
-	push dword [_L_4_] 	 ; Emitting a variable
-	push dword [_L_5_] 	 ; Emitting a variable
+	fld qword [_L_4_] 	 ; Emitting a real variable
+	fld qword [_L_4_] 	 ; Emitting a real literal
+;; Emitting an addop (-)
+	fsub  	 ; Addop, result on floating point stack
+	fld qword [_L_5_] 	 ; Emitting a real variable
 ;; Comparison
-	pop ebx 
-	pop eax 
-	cmp eax, ebx 	 ; make comparison
-	je _L_7_ 	 ; make the jump
+	fcomipp  	 ; compare top two elements of floating point stack
+	jl _L_7_ 	 ; make the jump
 _L_6_: nop  	 ; first since default
 	push 0 	 ; result = FALSE
 	jmp _L_8_ 	 ; move on
@@ -163,7 +164,7 @@ _REAL_IN_: db "%lf", 0
 .len: equ $ - _L_11_ 	 ; Length in bytes
 	_L_9_: db 'yay', 0
 .len: equ $ - _L_9_ 	 ; Length in bytes
-	_L_4_: dd 1
-	_L_5_: dd 2
+	_L_5_: dq 0.00000001
+	_L_4_: dq 1.0
 	_L_12_: dd 4
 	_L_13_: dd 5

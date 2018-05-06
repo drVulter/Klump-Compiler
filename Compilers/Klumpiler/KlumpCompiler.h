@@ -406,6 +406,24 @@ void emitCompop(string op, string type)
             jump = "jne";
         }
         emitLine("", jump, resTrue, "make the jump");
+    } else if (type == "REAL") {
+        //emitLine("", "fstp qword", "xmm1", "");
+        //emitLine("", "fstp qword", "xmm0", "");
+        emitLine("", "fcomipp", "", "compare top two elements of floating point stack");
+        if (op == "=") {
+            jump = "je";
+        } else if (op == "<") {
+            jump = "jl";
+        } else if (op == "<=") {
+            jump = "jle";
+        } else if (op == ">") {
+            jump = "jg";
+        } else if (op == ">=") {
+            jump = "jge";
+        } else if (op == "<>") {
+            jump = "jne";
+        }
+        emitLine("", jump, resTrue, "make the jump");
     }
     emitLine(resFalse, "nop", "", "first since default");
     emitLine("", "push", "0", "result = FALSE");
