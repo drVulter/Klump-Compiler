@@ -1104,7 +1104,7 @@ void assignment_statement(void)
             // emit the statement
 
             if (rType == lType) {
-
+                emitAssignment(name, lType);
             } else if (lType > rType) {
                 // promote rType
                 if (promote(rType, lType, "esp")) {
@@ -1269,12 +1269,18 @@ void while_statement(void)
     // <while_statement> -> WHILE ( <comparison> ) <statement>
 
     // already gobbled WHILE so...
+    string whileStart = makeLabel();
+    string whileDone = makeLabel();
     if (current.getToken() == "(") {
         current = getNext();
-        comparison();
+        emitWhileStart(whileStart);
+        string compType = comparison();
+        emitCheck("", whileDone);
         if (current.getToken() == ")") {
             current = getNext();
             statement();
+            emitWhileNext(whileStart);
+            emitDone(whileDone);
         } else {
             parseError(current.getLineNum(), current.getValue());
         }

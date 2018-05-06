@@ -7,10 +7,9 @@ global
 procedure main;
 
 begin {main}
-write('enter an int ');
-readln(m, y);
+
+m := 12;
 writeln(m);
-writeln(y);
 end {main}
 
 .

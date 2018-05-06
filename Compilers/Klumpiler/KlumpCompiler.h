@@ -42,6 +42,8 @@ void emitThen(string thenLbl);
 void emitThenEnd(string doneLbl);
 void emitElse(string label);
 void emitElseEnd(string done);
+void emitWhileStart(string start);
+void emitWhileNext(string start);
 void emitDone(string label);
 void emitMulop(string opCode, string type);
 void emitAddop(string opCode, string type);
@@ -440,7 +442,7 @@ void emitCheck(string thenLbl, string elseLbl)
     emitLine("", "pop", "eax", "get truth value");
     emitLine("", "cmp", "eax, 1", "");
     emitLine("", "jne", elseLbl, "not true so ELSE");
-    emitLine("", "jmp", thenLbl, "");
+    //emitLine("", "jmp", thenLbl, "");
 }
 
 void emitThen(string thenLbl)
@@ -465,6 +467,17 @@ void emitElseEnd(string done)
 {
     comment("Finished with else");
     emitLine("", "jmp", done, "");
+}
+
+void emitWhileStart(string start)
+{
+    comment("While statement");
+    emitLine(start, "nop", "", "");
+}
+
+void emitWhileNext(string start)
+{
+    emitLine("", "jmp", start, "go again");
 }
 
 void emitDone(string label)

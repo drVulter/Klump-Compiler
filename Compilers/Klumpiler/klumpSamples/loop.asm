@@ -15,9 +15,29 @@ _main:   	 ; Begin MAIN
 	push dword [_L_0_] 	 ; Emitting a variable
 ;; Assignment
 	pop dword eax 
-	mov [M], eax 	 ; make the move
+	mov [I], eax 	 ; make the move
+;; While statement
+_L_1_: nop  
+	push dword [I] 	 ; Emitting a variable
+	push dword [_L_3_] 	 ; Emitting a variable
+;; Comparison
+	pop ebx 
+	pop eax 
+	cmp eax, ebx 	 ; make comparison
+	jg _L_5_ 	 ; make the jump
+_L_4_: nop  	 ; first since default
+	push 0 	 ; result = FALSE
+	jmp _L_6_ 	 ; move on
+_L_5_: nop  
+	push 1 	 ; result = TRUE
+	jmp _L_6_ 
+_L_6_:   
+;; Check for if statement
+	pop eax 	 ; get truth value
+	cmp eax, 1 
+	jne _L_2_ 	 ; not true so ELSE
 	add esp, -4 	 ; Stack fix
-	push dword [M] 	 ; Emitting a variable
+	push dword [I] 	 ; Emitting a variable
 ;; Writing an INT
 	push dword _intStr 
 	call _printf 	 ; Make the call
@@ -36,6 +56,18 @@ _main:   	 ; Begin MAIN
 	add esp, 8 	 ; Fix stack
 	mov esp, ebp 
 	pop ebp 	 ; Stack frame restored
+	push dword [I] 	 ; Emitting a variable
+	push dword [_L_7_] 	 ; Emitting a variable
+;; Emitting an addop (+)
+	pop ebx 
+	pop eax 
+	add eax, ebx 	 ; Addop!
+	push eax 	 ; Storing result on stack
+;; Assignment
+	pop dword eax 
+	mov [I], eax 	 ; make the move
+	jmp _L_1_ 	 ; go again
+_L_2_: nop  
 _EXIT_MAIN:   	 ; End of MAIN
 	add esp, 4 	 ; Deallocate local memory
 	mov ebp, esp 
@@ -49,8 +81,7 @@ _exit_main:
 
 section .bss
 	_TEMP_REAL_: resb 8 	 ; Temporary storage for reals
-	M: resb 4
-	Y: resb 8
+	I: resb 4
 	_TEMP_INT_: resb 4
 
 section .data
@@ -61,4 +92,6 @@ section .data
 _NEGATIVE_: dq -1.0  	 ; Just negative one
 _INT_IN_: db "%d", 0  
 _REAL_IN_: db "%lf", 0  
-	_L_0_: dd 12
+	_L_0_: dd 0
+	_L_7_: dd 1
+	_L_3_: dd 5

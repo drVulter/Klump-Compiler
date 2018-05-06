@@ -19,7 +19,7 @@ _main:   	 ; Begin MAIN
 	fld qword [_L_5_] 	 ; Emitting a real variable
 ;; Comparison
 	fcomipp  	 ; compare top two elements of floating point stack
-	jl _L_7_ 	 ; make the jump
+	jg _L_7_ 	 ; make the jump
 _L_6_: nop  	 ; first since default
 	push 0 	 ; result = FALSE
 	jmp _L_8_ 	 ; move on
@@ -31,7 +31,6 @@ _L_8_:
 	pop eax 	 ; get truth value
 	cmp eax, 1 
 	jne _L_3_ 	 ; not true so ELSE
-	jmp _L_2_ 
 ;; Begin THEN clause
 _L_2_: nop  
 	add esp, -4 	 ; Stack fix

@@ -1,0 +1,14 @@
+global
+  dcl
+    i : int;
+procedure main;
+begin {main}
+      i := 0;
+      while (i > 5)
+      do;
+        writeln(i);
+        i := i + 1;
+      end;
+end{main}
+
+.

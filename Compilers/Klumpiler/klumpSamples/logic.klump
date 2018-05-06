@@ -4,7 +4,7 @@ procedure main;
 
 begin {main}
 
-if ((1.0 - 1.0) < 0.00000001)
+if ((1.0 - 1.0) > 0.00000001)
 then do;
 writeln('yay');
 writeln('hooray');
