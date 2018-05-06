@@ -1,5 +1,5 @@
 /*
-  Compiler for the PAL subset of the KLUMP programming language.
+  Compiler for the KLUMP programming language.
   Code emitting function definitions can be found in KlumpCompiler.h
 */
 
@@ -65,7 +65,7 @@ void goto_statement(void);
 void empty_statement(void);
 void compound_statement(void);
 void if_statement(void);
-string else_clause(void);
+string else_clause(string label, string done);
 void while_statement(void);
 void case_statement(void);
 void case_list(void);
@@ -200,7 +200,7 @@ int getLocalStorage(void)
 {
     // Determine amount of local storage necessary
     int storage = 0;
-    GTTMember tempType; 
+    GTTMember tempType;
     for (LSTMember var : LST) {
         tempType.typeID = var.type;
         set<GTTMember>:: iterator it = GTT.find(tempType);
@@ -222,7 +222,7 @@ void klump_program(Lexeme c)
     global_definitions();
     procedure_list();
     back(); // wrap up main
-    
+
     /*
     cout << "\ntypes" << endl;
     for (const GTTMember &member : GTT) {
@@ -237,7 +237,7 @@ void klump_program(Lexeme c)
     for (const LSTMember &member : LST) {
         cout << member.id << " " << member.type << " " << member.offset << " " << member.callbyVAR << endl;
     }
-    
+
     // dump literal table
     cout << "Dumping literals" << endl;
     for (const GLTMember &member : GLT) {
@@ -1015,7 +1015,7 @@ void read_statement(bool isReadln)
                 if (current.getToken() == ",") {
                     current = getNext();
                 } else if (current.getToken() == ")") {
-                    ; // nothing 
+                    ; // nothing
                 } else {
                     parseError(current.getLineNum(), current.getValue());
                 }
@@ -1071,7 +1071,7 @@ void assignment_statement(void)
 
     //string nameStr = val(); // Save the name!!
     string name;
-    string lType; // type being assigned to 
+    string lType; // type being assigned to
     string id = lval();
     LSTMember tempLST; tempLST.id = id;
     set<LSTMember>:: iterator it = LST.find(tempLST);
@@ -1102,9 +1102,9 @@ void assignment_statement(void)
         string rType = expression();
         if (current.getToken() == ";") {
             // emit the statement
-            
+
             if (rType == lType) {
-                
+
             } else if (lType > rType) {
                 // promote rType
                 if (promote(rType, lType, "esp")) {
@@ -1225,14 +1225,21 @@ void if_statement(void)
 
     // already gobbled IF so...
     if (current.getToken() == "(") {
+        string checkLbl = makeLabel();
+        string doneLbl = makeLabel();
+        string thenLbl = makeLabel();
+        string elseLbl = makeLabel();
         current = getNext();
         string type = comparison();
         if (current.getToken() == ")") {
+            emitCheck(thenLbl, elseLbl);
             current = getNext();
             if (current.getToken() == "THEN") {
                 current = getNext();
+                emitThen(doneLbl);
                 statement();
-                else_clause();
+                else_clause(elseLbl, doneLbl);
+                emitDone(doneLbl);
             } else {
                 parseError(current.getLineNum(), current.getValue());
             }
@@ -1244,12 +1251,14 @@ void if_statement(void)
     }
 }
 
-string else_clause(void)
+string else_clause(string label, string done)
 {
     // <else_clause> -> ELSE <statement> | e
 
     if (current.getToken() == "ELSE") {
         current = getNext();
+        emitElse(label);
+        emitElseEnd(done);
         statement();
     }
 }
@@ -1409,6 +1418,7 @@ string comparison(void)
         string type = typeCheck(compType, otherType);
         emitCompop(op, type);
         compType = "BOOL";
+        current = getNext();
     }
     return compType;
 }

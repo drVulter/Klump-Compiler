@@ -37,6 +37,11 @@ void emitRead(string name, string type);
 void emitReadln(void);
 void emitAssignment(string var, string type);
 void emitCompop(string opCode, string type);
+void emitCheck(string thenLbl, string elseLbl);
+void emitThen(string doneLbl);
+void emitElse(string label);
+void emitElseEnd(string done);
+void emitDone(string label);
 void emitMulop(string opCode, string type);
 void emitAddop(string opCode, string type);
 bool emitNeg(string type);
@@ -378,13 +383,13 @@ void emitAssignment(string var, string type)
 void emitCompop(string op, string type)
 {
     comment("Comparison");
-    string resFalse = makeLabel(); // jumped to if true 
+    string resFalse = makeLabel(); // jumped to if true
     string resTrue = makeLabel(); // jumped to if false
     string compDone = makeLabel(); // jump to when finished
     string jump; // type of jump
     if (type == "INT") {
-        emitLine("", "pop", eax, "");
-        emitLine("", "pop", ebx, "");
+        emitLine("", "pop", "eax", "");
+        emitLine("", "pop", "ebx", "");
         emitLine("", "cmp", "eax, ebx", "make comparison");
         if (op == "=") {
             jump = "je";
@@ -409,6 +414,38 @@ void emitCompop(string op, string type)
     emitLine("", "jmp", compDone, "");
     emitLine(compDone, "", "", "");
 }
+
+void emitCheck(string thenLbl, string elseLbl)
+{
+    comment("Check for if statement");
+    emitLine("", "pop", "eax", "get truth value");
+    emitLine("", "cmp", "eax, 1", "");
+    emitLine("", "jne", elseLbl, "not true so ELSE");
+}
+
+void emitThen(string doneLbl)
+{
+    comment("finsihed so go to done");
+    emitLine("", "jmp", doneLbl, "");
+}
+
+void emitElse(string label)
+{
+    comment("Else");
+    emitLine(label, "nop", "", "");
+}
+
+void emitElseEnd(string done)
+{
+    comment("Finished with else");
+    emitLine("", "jmp", done, "");
+}
+
+void emitDone(string label)
+{
+    emitLine(label, "nop", "", "");
+}
+
 void emitNumber(string num)
 {
     /*

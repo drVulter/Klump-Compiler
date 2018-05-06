@@ -1,0 +1,16 @@
+global
+
+procedure main;
+
+begin {main}
+
+if (1 < 2)
+then
+writeln('yay');
+else
+writeln('nah');
+
+
+end {main}
+
+.
