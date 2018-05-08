@@ -1,14 +1,16 @@
 global
-
+dcl
+  h : int;
 proc
   print;
 
 procedure main;
       dcl
         x : int;
-
 begin {main}
+x := 12;
       call print;
+      writeln(x);
 end{main}
 
 procedure print;
@@ -17,10 +19,8 @@ dcl
 y : real;
 x : int;
 begin {print}
-y := 2.0;
-x := 12;
-      writeln(y);
-      writeln(x);
-end {printer}
+x := 7.0;
+writeln(x);
+end {print}
 
 .

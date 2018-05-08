@@ -12,14 +12,26 @@ _main:   	 ; Begin MAIN
 	push ebp 	 ; Save base pointer
 	mov ebp, esp 	 ; new base
 	sub esp, 12 	 ; Reserve memory for local variables
-;; Read!
-	add esp, -4 	 ; Pad the stack
-	push dword M 	 ; put variable address on stack
-	push dword _INT_IN_ 	 ; temp storage
-	call _scanf 	 ; Make the call
-	add esp, 12 	 ; Fix the stack
+;; Call statement
+	call _ENTER_PRINT 
+_EXIT_MAIN:   	 ; End of MAIN
+	add esp, 12 	 ; Deallocate local memory
+	mov esp, ebp 
+	pop ebp 	 ; Fix stack
+	push dword 0 
+	mov eax, 0x1 
+	sub esp, 4 
+	int 0x80 	 ; Make exit call
+_ENTER_PRINT:   	 ; Begin PRINT
+	push ebp 	 ; Save base pointer
+	mov ebp, esp 	 ; new base
+	sub esp, 8 	 ; Reserve memory for local variables
+	push dword [_L_1_] 	 ; Emitting a variable
+;; Assignment
+	pop dword eax 
+	mov [ebp-8], eax 	 ; make the move
 	add esp, -4 	 ; Stack fix
-	push dword [M] 	 ; Emitting a variable
+	push dword [ebp - 8] 	 ; Emitting a variable
 ;; Writing an INT
 	push dword _intStr 
 	call _printf 	 ; Make the call
@@ -38,19 +50,15 @@ _main:   	 ; Begin MAIN
 	add esp, 8 	 ; Fix stack
 	mov esp, ebp 
 	pop ebp 	 ; Stack frame restored
-_EXIT_MAIN:   	 ; End of MAIN
+_EXIT_PRINT:   	 ; End of PRINT
 	add esp, 12 	 ; Deallocate local memory
 	mov esp, ebp 
 	pop ebp 	 ; Fix stack
-	push dword 0 
-	mov eax, 0x1 
-	sub esp, 4 
-	int 0x80 	 ; Make exit call
+	ret  
 
 	section .bss 
 	_TEMP_REAL_: resb 8 	 ; Temporary storage for reals
-M: resb 4 
-X: resb 8 
+H: resb 4 
 _TEMP_INT_: resb 4 
 
 	section .data 
@@ -61,5 +69,4 @@ _NEW_LINE_: db 10, 0 	 ; Just a carriage return
 _NEGATIVE_: dq -1.0  	 ; Just negative one
 _INT_IN_: db "%d", 0  
 _REAL_IN_: db "%lf", 0  
-N: dd 100 
-R: dq 5.6 
+_L_1_: dd 3 

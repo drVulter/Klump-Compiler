@@ -6,7 +6,6 @@ const
 dcl
   m : int;
   x : real;
-  str : cstring;
 
 procedure main;
 

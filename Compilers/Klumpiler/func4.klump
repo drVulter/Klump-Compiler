@@ -1,0 +1,23 @@
+global
+dcl
+  h : int;
+proc
+  func : string;
+procedure main;
+      dcl
+        x : int;
+        s : string;
+begin {main}
+s := func;
+writeln(s);
+end{main}
+
+procedure func;
+
+dcl
+  s : string;
+begin
+s := 'world';
+return s;
+end
+.

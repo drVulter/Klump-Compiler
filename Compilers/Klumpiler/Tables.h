@@ -54,6 +54,7 @@ struct GPTMember
     string returnType; // return type
     int storage; // local storage in BYTES
     string label; // entry label
+    string exit; // exit label, i.e. _EXIT_<PROCNAME>_
     bool operator < (const GPTMember &other) const { return id < other.id; }
 };
 /* Entry in GLOBAL LITERAL TABLE */
@@ -81,6 +82,7 @@ struct GTTMember
 struct LSTMember 
 {
     string id;
+    string internalID; // how it is actually referenced in assembly
     string type;
     string offset; // depends on size
     bool callbyVAR; // call by VAR or VAL 

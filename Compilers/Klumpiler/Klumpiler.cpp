@@ -36,15 +36,15 @@ void fld_list(void);
 void dcl_definitions(bool isGlobal);
 void dcl_list(bool isGlobal);
 void dcl_type(void);
-void atomic_type(void);
+string atomic_type(void);
 void proc_declarations(void);
 void signature_list(void);
-void proc_signature(void);
+string proc_signature(void);
 void formal_args(void);
 void formal_arg_list(void);
 void formal_arg(void);
 void call_by(void);
-void return_type(void);
+string return_type(void);
 void actual_args(string caller);
 void actual_arg_list(string caller);
 string actual_arg(void);
@@ -85,7 +85,7 @@ void addop(void);
 void mulop(void);
 bool unary(void);
 string lval(void);
-void func_ref(void);
+string func_ref(GPTMember proc);
 void qualifier(void);
 // end_klump(void);
 using namespace std;
@@ -123,7 +123,11 @@ stack<string> startLoopStack; // keep track of where you are in nested loops!
 stack<string> endLoopStack;
 
 // labels for returning from call statements
-stack<string> callLabels;
+//stack<string> callLabels;
+
+// procedure that we are currently in
+//GPTMember globalCurrentProc;
+string globalCurrentExit;
 
 int main(void)
 {
@@ -155,6 +159,7 @@ void initializeTables(void)
     GTTMember strType; // size???
     strType.typeID = "STRING";
     strType.structure = "ATOMIC";
+    strType.size = 4;
     GTT.insert(strType);
     GSTMember tempInt; // used for type conversion
     tempInt.id = "_TEMP_INT_";
@@ -556,6 +561,7 @@ void dcl_list(bool isGlobal)
                     tempType = *it;
                     offset += tempType.size;
                     var.offset = to_string(offset);
+                    var.internalID = "ebp - " + var.offset;
                     var.callbyVAR = true; // default
                     LST.insert(var);
                 }
@@ -571,24 +577,27 @@ void dcl_list(bool isGlobal)
 void dcl_type(void)
 {
     // <dcl_type> -> <atomic_type> | IDENTIFIER
-
+    string type;
     if (current.getToken() == "IDENTIFIER")
         current = getNext();
     else
-        atomic_type();
+        type = atomic_type();
 
 }
 
-void atomic_type(void)
+string atomic_type(void)
 {
     // <atomic_type> -> BOOL | INT | REAL | STRING
+    string type;
     set<string>:: iterator it = atomicTypes.find(current.getToken()); // check
     if (it != atomicTypes.end()) {
         // found so okay
+        type = (*it);
         current = getNext();
     } else {
         parseError(current.getLineNum(), current.getValue());
     }
+    return type;
     /*
     if (current.getToken() == "BOOL" || current.getToken() == "INT" ||
         current.getToken() == "REAL" || current.getToken() == "STRING")
@@ -620,13 +629,13 @@ void signature_list(void)
             newProc.label = "_main";
         } else {
             newProc.label = "_ENTER_" + newProc.id;
+            newProc.exit = "_EXIT_" + newProc.id;
         }
+        newProc.exit = "_EXIT_" + newProc.id;
         current = getNext();
-        proc_signature();
+        string type = proc_signature();
+        newProc.returnType = type;
         GPT.insert(newProc);
-        for (const GPTMember &member : GPT) {
-            //cout << member.id << member.label << endl;
-        }
         if (current.getToken() == ";") {
             // go again
             current = getNext();
@@ -635,18 +644,19 @@ void signature_list(void)
     }
 }
 
-void proc_signature(void)
+string proc_signature(void)
 {
     // <proc_signature> -> IDENTIFIER <formal_args> :  <return_type> ;
-
+    string type;
     // already have IDENTIFIER so...
     formal_args();
     if (current.getToken() == ":") {
         current = getNext();
-        return_type();
+        type = return_type();
         if (current.getToken() != ";")
             parseError(current.getLineNum(), current.getValue());
     }
+    return type;
 }
 
 void formal_args(void)
@@ -701,11 +711,11 @@ void call_by(void)
     }
 }
 
-void return_type(void)
+string return_type(void)
 {
     // <return_type> -> <atomic_type> | e
 
-    atomic_type();
+    return atomic_type();
 }
 
 void actual_args(string caller)
@@ -782,8 +792,9 @@ void procedure_list(void)
 void procedure(void)
 {
     // <procedure> -> <proc_head> <proc_body>
-    GPTMember currentProc = proc_head();
-    proc_body(currentProc);
+    GPTMember proc = proc_head();
+    // update global current proc
+    proc_body(proc);
 }
 
 GPTMember proc_head(void)
@@ -803,6 +814,7 @@ GPTMember proc_head(void)
         current = getNext();
         if (current.getToken() == ";") {
             current = getNext();
+            globalCurrentExit = (*it).exit;
             return (*it);
         } else {
             parseError(current.getLineNum(), current.getValue());
@@ -820,6 +832,7 @@ void proc_body(GPTMember proc)
     LLT.clear();
     dcl_definitions(false); // not global variables
     proc.storage = getLocalStorage(); // figure out how much local storage necessary
+    //cout << "TESTING" << proc.storage << endl;
     if (current.getToken() == "BEGIN") {
         current = getNext();
         //cout << "TESTING " << proc.id << proc.label << endl;
@@ -1018,7 +1031,7 @@ void read_statement(bool isReadln)
                 LSTMember tempLST; tempLST.id = name;
                 set<LSTMember>:: iterator it = LST.find(tempLST);
                 if (it != LST.end()) { // found
-                    // implement this!
+                    emitRead((*it).internalID, (*it).type, true);
                 } else {
                     // check GST
                     GSTMember tempGST; tempGST.id = name;
@@ -1027,7 +1040,7 @@ void read_statement(bool isReadln)
                         if ((*gIter).isConst) {
                             semanticError(current.getLineNum(), "Cannot overwrite a constant!");
                         }
-                        emitRead(name, (*gIter).type);
+                        emitRead(name, (*gIter).type, false);
                     }
                 }
                 current = getNext();
@@ -1121,7 +1134,6 @@ void assignment_statement(void)
         string rType = expression();
         if (current.getToken() == ";") {
             // emit the statement
-
             if (rType == lType) {
                 emitAssignment(name, lType);
             } else if (lType > rType) {
@@ -1155,8 +1167,6 @@ void call_statement(void)
     // <call_statement> -> CALL IDENTIFIER <actual_args> ;
 
     // already have CALL so...
-    string returnLabel = makeLabel();
-    callLabels.push(returnLabel); 
     if (current.getToken() == "IDENTIFIER") {
         // find the right proc
         GPTMember temp; temp.id = current.getValue();
@@ -1170,6 +1180,7 @@ void call_statement(void)
         if (current.getToken() == ";") {
             //emitGoto((*it).label);
             emitCall((*it).label);
+            //callLabels.push((*it).exit); 
             current = getNext();
         } else {
             parseError(current.getLineNum(), current.getValue());
@@ -1186,12 +1197,14 @@ void return_statement(void)
     // already have RETURN so...
     //if (current.getToken() == "[") {
     //    current = getNext();
-        string temp = expression();
+        string type = expression();
         //if (current.getToken() == "]") {
         //current = getNext();
-        string returnLabel = callLabels.top();
-        callLabels.pop();
+        //string returnLabel = callLabels.top();
+        //callLabels.pop();
             if (current.getToken() == ";") {
+                //cout << "TEST" << globalCurrentProc.id << globalCurrentProc.exit << endl;
+                emitReturn(type, globalCurrentExit);
                 current = getNext();
             } else {
                 parseError(current.getLineNum(), current.getValue());
@@ -1550,13 +1563,21 @@ string factor(void)
     } else if (current.getToken() == "IDENTIFIER") {
         // <func_ref> | <lval>
         string name = current.getValue(); // save
-        if (current.getToken() == "(") {
-            func_ref();
-        } else if ((current.getToken() == "[") || (current.getToken() == ".")) {
-            qualifier();
+        current = getNext(); //GOBBLE
+        //cout << "test"<< current.getValue() << endl;
+        // check for a function first
+        GPTMember findProc; findProc.id = name;
+        set<GPTMember>:: iterator procIt = GPT.find(findProc);
+        if (procIt != GPT.end()) {
+            // function call!
+            //cout << "girt" << current.getLineNum() << endl;
+            factorType = func_ref((*procIt));
         } else {
+            /*if ((current.getToken() == "[") || (current.getToken() == ".")) {
+              qualifier();
+              } else {*/
             // just a variable, first check local
-            LSTMember localTemp; localTemp.id = current.getValue();
+            LSTMember localTemp; localTemp.id = name;
             set<LSTMember>:: iterator localIt = LST.find(localTemp);
             if (localIt != LST.end()) {
                 // found!
@@ -1565,7 +1586,7 @@ string factor(void)
                 emitVar(idStr, factorType);
             } else {
                 // then check global symbol table
-                GSTMember globalTemp; globalTemp.id = current.getValue();
+                GSTMember globalTemp; globalTemp.id = name;
                 set<GSTMember>:: iterator globalIt = GST.find(globalTemp);
                 if (globalIt != GST.end()) {
                     // found!
@@ -1573,14 +1594,14 @@ string factor(void)
                     emitVar((*globalIt).id, factorType);
                 } else {
                     // not found anywhere!
+                    //cout << "trig" << current.getLineNum() << endl;
                     semanticError(current.getLineNum(), current.getValue() + " not defined!");
                 }
             }
-
         }
-        current = getNext();
+        //}
 // \epsilon in both cases
-    } else if (current.getToken() == "(") {
+} else if (current.getToken() == "(") {
         current = getNext();
         factorType = expression();
         if (current.getToken() == ")") {
@@ -1668,11 +1689,27 @@ string lval(void)
     return name;
 }
 
-void func_ref(void) {
+string func_ref(GPTMember proc) {
     // <func_ref> -> IDENTIFIER <actual_args>
 
     // already gobbled IDENTIFIER so...
+    string type = proc.returnType; // return type of proc
+    // figure that out!
+    /*
+    GPTMember look; look.id = name;
+    set<GPTMember>::iterator it = GPT.find(look);
+    if (it != GPT.end()) {
+        // got it!
+        type = (*it).returnType;
+    } else {
+        semanticError(current.getLineNum(), "Procedure " + name + "not defined!");
+        }*/
     actual_args("PROC");
+    emitCall(proc.label);
+
+    emitFuncRef(type);
+    return type;
+    
 }
 
 

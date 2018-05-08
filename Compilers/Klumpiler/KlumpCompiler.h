@@ -34,7 +34,7 @@ void emitGoto(string label);
 void emitEmptyStatement(void);
 void emitWrite(string type);
 void emitWriteln(void);
-void emitRead(string name, string type);
+void emitRead(string name, string type, bool isLocal);
 void emitReadln(void);
 void emitAssignment(string var, string type);
 void emitCompop(string opCode, string type);
@@ -46,6 +46,8 @@ void emitElseEnd(string done);
 void emitWhileStart(string start);
 void emitWhileNext(string start);
 void emitDone(string label);
+void emitReturn(string type, string label);
+void emitFuncRef(string type);
 void emitMulop(string opCode, string type);
 void emitAddop(string opCode, string type);
 bool emitNeg(string type);
@@ -215,7 +217,7 @@ void emitProcHead(GPTMember proc)
     emitLine("", "push", "ebp", "Save base pointer");
     emitLine("", "mov", "ebp, esp", "new base");
     // set up storage
-    int offset = proc.storage + (16 - (proc.storage % 16)) - 4;
+    int offset = proc.storage + (16 - (proc.storage % 16)) - 4 + 16;
     if (proc.id != "MAIN")
         offset -= 4;
     emitLine("", "sub", "esp, " + to_string(offset), "Reserve memory for local variables");
@@ -225,7 +227,7 @@ void emitProcEnd(GPTMember proc)
 {
     // ESCHATON
     string label = "_EXIT_" + proc.id;
-    int offset = proc.storage + (16 - (proc.storage % 16)) - 4;
+    int offset = proc.storage + (16 - (proc.storage % 16)) - 4 + 16;
     emitLine(label, "", "","End of " + proc.id);
     emitLine("", "add", "esp, " + to_string(offset), "Deallocate local memory");
     emitLine("", "mov", "esp, ebp", "");
@@ -341,7 +343,7 @@ void emitWriteln(void)
     // no need to FLUSH
 }
 
-void emitRead(string name, string type)
+void emitRead(string name, string type, bool isLocal)
 {
 	/*
 		Assume that
@@ -350,8 +352,13 @@ void emitRead(string name, string type)
 		have already been emitted
 	*/
 	comment("Read!");
+  string varStr = name;
+  if (isLocal) {
+      emitLine("", "lea", "eax, [" + varStr + "]", "Use eax to store address of local var");
+      varStr = "eax";
+  }
   emitLine("", "add", "esp, -4", "Pad the stack");
-  emitLine("", "push dword", name, "put variable address on stack");
+  emitLine("", "push dword", varStr, "put variable address on stack");
 	if (type == "INT") {
       emitLine("", "push dword", "_INT_IN_", "temp storage");
 	} else if (type == "REAL") {
@@ -384,7 +391,7 @@ void emitAssignment(string var, string type)
         emitLine("", "mov", var + ", eax", "make the move");
     } else if (type == "STRING") {
         emitLine("", "pop dword", "esi", "Source");
-        emitLine("", "mov", "edi, " + var, "Destination");
+        emitLine("", "lea", "edi, " + var, "Destination");
         // this is shitty, bad hack, fix later
         emitLine("", "mov", "ecx, 1000", "mov up to 1000 characters");
         //emitLine("", "mov", "ecx, " + var + ".len", "length");
@@ -497,6 +504,29 @@ void emitDone(string label)
     emitLine(label, "nop", "", "");
 }
 
+void emitReturn(string type, string label)
+{
+    // puts a return value in registers for access from the previous function
+    comment("Return statement");
+    if (type == "INT") {
+        // return val should be on stack, so pop it to eax
+        emitLine("", "pop", "eax", "put into register");
+    } else if (type == "REAL") {
+        
+    } else if (type == "STRING") {
+        emitLine("", "pop", "eax", "");
+        //emitLine("", "lea", "eax, [ebx]", "");
+    }
+    emitGoto(label);
+}
+
+void emitFuncRef(string type)
+{
+    if (type == "INT") {
+        emitLine("", "push", "eax", "put value back on stack");
+    }
+}
+
 void emitNumber(string num)
 {
     /*
@@ -524,7 +554,8 @@ void emitVar(string var, string type)
         emitLine("", "fld " + typeStr, "[" + var + "]", "Emitting a real variable");
     } else if (type == "STRING") {
         typeStr = "dword";
-        emitLine("", "push " + typeStr, var, "Emitting a STRING var");
+        emitLine("", "lea", "eax, [" + var + "]", "");
+        emitLine("", "push ","eax", "Emitting a STRING var");
     }
 
 }
@@ -636,7 +667,7 @@ void emitBss(set<GSTMember> &vars, set<GTTMember> &types)
       ...
     */
     blankLine();
-    cout << "section .bss\n";
+    emitLine("", "section", ".bss", "");
     emitLine("", "_TEMP_REAL_: resb", "8", "Temporary storage for reals");
     for (GSTMember var : vars) {
         if (!var.isConst) {
@@ -644,8 +675,9 @@ void emitBss(set<GSTMember> &vars, set<GTTMember> &types)
             set<GTTMember>:: iterator it = types.find(tempType);
             if (it != types.end()) { // cover yourself!
                 tempType = *it;
-                cout << "\t" << var.id << ": resb " <<
-                    tempType.size << endl;
+                emitLine(var.id, "resb", to_string(tempType.size), "");
+                //cout << "\t" << var.id << ": resb " <<
+                //    tempType.size << endl;
             } else {
                 // something? some kinda error?
             }
@@ -662,11 +694,11 @@ void emitData(set<GSTMember> &consts, set<GLTMember> &literals)
     */
 
     blankLine();
-    cout << "section .data\n";
-    cout << "\t_intStr: db \"%d\", 0\n";
-    cout << "\t_realStr: db \"%f\", 0\n";
-    cout << "\t_strStr: db \"%s\", 0\n";
-    emitLine("", "_NEW_LINE_: db", "10, 0", "Just a carriage return");
+    emitLine("", "section", ".data", "");
+    emitLine("_intStr", "db", "\"%d\", 0", "");
+    emitLine("_realStr", "db", "\"%f\", 0", "");
+    emitLine("_strStr", "db", "\"%s\", 0", "");
+    emitLine("_NEW_LINE_",  "db","10, 0", "Just a carriage return");
     emitLine("_NEGATIVE_", "dq -1.0", "", "Just negative one");
     // reading
     emitLine("_INT_IN_", "db \"%d\", 0", "", "");
@@ -675,17 +707,18 @@ void emitData(set<GSTMember> &consts, set<GLTMember> &literals)
     for (GSTMember konst : consts) {
         if (konst.isConst) {
             //string sizeStr; // how big?
-            string name = konst.value;
-            cout << "\t" << konst.id << ": " << sizes[konst.type] << " " <<
-               konst.value << endl;
+            emitLine(konst.id, sizes[konst.type], konst.value, "");
+            /*cout << "\t" << konst.id << ": " << sizes[konst.type] << " " <<
+              konst.value << endl; */
         }
     }
     // now emit the literals
     for (GLTMember literal : literals) {
-        cout << "\t" << literal.label << ": " << sizes[literal.type] << " " <<
-            literal.value << endl;
-        if (literal.type == "STRING")
-            emitLine(".len", "equ", "$ - " + literal.label, "Length in bytes");
+        emitLine(literal.label, sizes[literal.type], literal.value, "");
+        //cout << "\t" << literal.label << ": " << sizes[literal.type] << " " <<
+        //    literal.value << endl;
+        //if (literal.type == "STRING")
+        //   emitLine(".len", "equ", "$ - " + literal.label, "Length in bytes");
     }
 }
 

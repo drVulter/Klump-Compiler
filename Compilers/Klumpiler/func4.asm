@@ -11,17 +11,20 @@
 _main:   	 ; Begin MAIN
 	push ebp 	 ; Save base pointer
 	mov ebp, esp 	 ; new base
-	sub esp, 12 	 ; Reserve memory for local variables
-;; Read!
-	add esp, -4 	 ; Pad the stack
-	push dword M 	 ; put variable address on stack
-	push dword _INT_IN_ 	 ; temp storage
-	call _scanf 	 ; Make the call
-	add esp, 12 	 ; Fix the stack
+	sub esp, 28 	 ; Reserve memory for local variables
+;; Call statement
+	call _ENTER_FUNC 
+;; Assignment
+	pop dword esi 	 ; Source
+	lea edi, [ebp-8] 	 ; Destination
+	mov ecx, 1000 	 ; mov up to 1000 characters
+	cld  
+	rep movsb 	 ; Do the move
 	add esp, -4 	 ; Stack fix
-	push dword [M] 	 ; Emitting a variable
-;; Writing an INT
-	push dword _intStr 
+	lea eax, [ebp - 8] 
+	push  eax 	 ; Emitting a STRING var
+;; Writing a STRING
+	push dword _strStr 
 	call _printf 	 ; Make the call
 	add esp, 12 	 ; stack fixed
 ;; Now FLUSH!
@@ -39,18 +42,41 @@ _main:   	 ; Begin MAIN
 	mov esp, ebp 
 	pop ebp 	 ; Stack frame restored
 _EXIT_MAIN:   	 ; End of MAIN
-	add esp, 12 	 ; Deallocate local memory
+	add esp, 28 	 ; Deallocate local memory
 	mov esp, ebp 
 	pop ebp 	 ; Fix stack
 	push dword 0 
 	mov eax, 0x1 
 	sub esp, 4 
 	int 0x80 	 ; Make exit call
+_ENTER_FUNC:   	 ; Begin FUNC
+	push ebp 	 ; Save base pointer
+	mov ebp, esp 	 ; new base
+	sub esp, 24 	 ; Reserve memory for local variables
+	lea eax, [_L_0_] 
+	push  eax 	 ; Emitting a STRING var
+  ;; Assignment
+preAssign:  
+	pop dword esi 	 ; Source
+	lea edi, [ebp-4] 	 ; Destination
+	mov ecx, 1000 	 ; mov up to 1000 characters
+	cld  
+	rep movsb 	 ; Do the move
+	lea eax, [ebp - 4]
+postAssign: 
+	push  eax 	 ; Emitting a STRING var
+;; Return statement
+	pop eax 
+	jmp _EXIT_FUNC 
+_EXIT_FUNC:   	 ; End of FUNC
+	add esp, 28 	 ; Deallocate local memory
+	mov esp, ebp 
+	pop ebp 	 ; Fix stack
+	ret  
 
 	section .bss 
 	_TEMP_REAL_: resb 8 	 ; Temporary storage for reals
-M: resb 4 
-X: resb 8 
+H: resb 4 
 _TEMP_INT_: resb 4 
 
 	section .data 
@@ -61,5 +87,4 @@ _NEW_LINE_: db 10, 0 	 ; Just a carriage return
 _NEGATIVE_: dq -1.0  	 ; Just negative one
 _INT_IN_: db "%d", 0  
 _REAL_IN_: db "%lf", 0  
-N: dd 100 
-R: dq 5.6 
+_L_0_: db 'world', 0 
