@@ -26,7 +26,7 @@ void blankLine(void);
 void comment(string s);
 void front(void);
 void back(void);
-void emitCall(string label, string doneLabel);
+void emitCall(GPTMember proc);
 void emitProcHead(GPTMember proc);
 void emitProcEnd(GPTMember proc);
 void emitLabel(LLTMember label);
@@ -201,10 +201,20 @@ void back(void)
     emitLine("", "int", "0x80", "Make exit call");
 }
 
-void emitCall(string label)
+void emitCall(GPTMember proc)
 {
     comment("Call statement");
-    emitLine("", "call", label, "");
+    emitLine("", "call", proc.label, "");
+    // clean up arguments
+    int clean = 0;
+    for (int i = 0; i < proc.parameters.size(); i++) {
+        if (proc.parameters.at(i).type == "INT") {
+            clean += 4;
+        } else if (proc.parameters.at(i).type == "REAL") {
+            clean += 8;
+        }
+    }
+    emitLine("", "add", "esp, " + to_string(clean), "");
 }
 
 void emitProcHead(GPTMember proc)
@@ -220,6 +230,16 @@ void emitProcHead(GPTMember proc)
     int offset = proc.storage + (16 - (proc.storage % 16)) - 4 + 16;
     if (proc.id != "MAIN")
         offset -= 4;
+    // for bullshit stack align purposes, must also fix stack for arguments
+    int clean = 0;
+    for (int i = 0; i < proc.parameters.size(); i++) {
+        if (proc.parameters.at(i).type == "INT") {
+            clean += 4;
+        } else if (proc.parameters.at(i).type == "REAL") {
+            clean += 8;
+        }
+    }
+    offset -= clean;
     emitLine("", "sub", "esp, " + to_string(offset), "Reserve memory for local variables");
 }
 
@@ -512,7 +532,7 @@ void emitReturn(string type, string label)
         // return val should be on stack, so pop it to eax
         emitLine("", "pop", "eax", "put into register");
     } else if (type == "REAL") {
-        
+        emitLine("", "fstp qword", "[_TEMP_REAL_]", "");
     } else if (type == "STRING") {
         emitLine("", "pop", "eax", "");
         //emitLine("", "lea", "eax, [ebx]", "");
@@ -524,6 +544,8 @@ void emitFuncRef(string type)
 {
     if (type == "INT") {
         emitLine("", "push", "eax", "put value back on stack");
+    } else if (type == "REAL") {
+        emitLine("", "fld qword", "[_TEMP_REAL_]", "");
     }
 }
 

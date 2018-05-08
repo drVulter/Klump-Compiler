@@ -11,11 +11,12 @@
 _main:   	 ; Begin MAIN
 	push ebp 	 ; Save base pointer
 	mov ebp, esp 	 ; new base
-	sub esp, 12 	 ; Reserve memory for local variables
+	sub esp, 28 	 ; Reserve memory for local variables
 ;; Call statement
 	call _ENTER_PRINT 
+	add esp, 0 
 _EXIT_MAIN:   	 ; End of MAIN
-	add esp, 12 	 ; Deallocate local memory
+	add esp, 28 	 ; Deallocate local memory
 	mov esp, ebp 
 	pop ebp 	 ; Fix stack
 	push dword 0 
@@ -25,13 +26,14 @@ _EXIT_MAIN:   	 ; End of MAIN
 _ENTER_PRINT:   	 ; Begin PRINT
 	push ebp 	 ; Save base pointer
 	mov ebp, esp 	 ; new base
-	sub esp, 8 	 ; Reserve memory for local variables
-	push dword [_L_1_] 	 ; Emitting a variable
+	sub esp, 24 	 ; Reserve memory for local variables
+postRes:  
+	push dword [_L_0_] 	 ; Emitting a variable
 ;; Assignment
 	pop dword eax 
-	mov [ebp-8], eax 	 ; make the move
+	mov [ebp-12], eax 	 ; make the move
 	add esp, -4 	 ; Stack fix
-	push dword [ebp - 8] 	 ; Emitting a variable
+	push dword [ebp - 12] 	 ; Emitting a variable
 ;; Writing an INT
 	push dword _intStr 
 	call _printf 	 ; Make the call
@@ -51,7 +53,7 @@ _ENTER_PRINT:   	 ; Begin PRINT
 	mov esp, ebp 
 	pop ebp 	 ; Stack frame restored
 _EXIT_PRINT:   	 ; End of PRINT
-	add esp, 12 	 ; Deallocate local memory
+	add esp, 28 	 ; Deallocate local memory
 	mov esp, ebp 
 	pop ebp 	 ; Fix stack
 	ret  
@@ -69,4 +71,4 @@ _NEW_LINE_: db 10, 0 	 ; Just a carriage return
 _NEGATIVE_: dq -1.0  	 ; Just negative one
 _INT_IN_: db "%d", 0  
 _REAL_IN_: db "%lf", 0  
-_L_1_: dd 3 
+_L_0_: dd 3 

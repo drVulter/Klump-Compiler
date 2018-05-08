@@ -1,0 +1,21 @@
+global
+dcl
+  h : int;
+proc
+  func (x : int, y : int) : int;
+procedure main;
+      dcl
+        x : real;
+begin {main}
+x :=  func(3,2);
+writeln(x);
+end{main}
+
+procedure func;
+
+dcl
+  m : int;
+begin
+return x + y + 0.0;
+end
+.

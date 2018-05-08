@@ -15,6 +15,7 @@
 #include <stack>
 #include <set>
 #include <map>
+#include <boost/algorithm/string.hpp>
 
 /*  HELPER PROTOTYPES */
 void initializeTables(void);
@@ -39,10 +40,10 @@ void dcl_type(void);
 string atomic_type(void);
 void proc_declarations(void);
 void signature_list(void);
-string proc_signature(void);
-void formal_args(void);
-void formal_arg_list(void);
-void formal_arg(void);
+string proc_signature(GPTMember &proc);
+int formal_args(GPTMember &proc);
+int formal_arg_list(GPTMember &proc);
+parameter formal_arg(int offset);
 void call_by(void);
 string return_type(void);
 void actual_args(string caller);
@@ -633,7 +634,7 @@ void signature_list(void)
         }
         newProc.exit = "_EXIT_" + newProc.id;
         current = getNext();
-        string type = proc_signature();
+        string type = proc_signature(newProc);
         newProc.returnType = type;
         GPT.insert(newProc);
         if (current.getToken() == ";") {
@@ -644,12 +645,12 @@ void signature_list(void)
     }
 }
 
-string proc_signature(void)
+string proc_signature(GPTMember &proc)
 {
     // <proc_signature> -> IDENTIFIER <formal_args> :  <return_type> ;
     string type;
     // already have IDENTIFIER so...
-    formal_args();
+    int size = formal_args(proc);
     if (current.getToken() == ":") {
         current = getNext();
         type = return_type();
@@ -659,42 +660,81 @@ string proc_signature(void)
     return type;
 }
 
-void formal_args(void)
+int formal_args(GPTMember &proc)
 {
     // <formal_args> -> ( <formal_arg_list> ) | e
-
+    int size = 0;
     if (current.getToken() == "(") {
         current = getNext();
-        formal_arg_list();
+        size = formal_arg_list(proc);
         if (current.getToken() == ")") {
             current = getNext();
+            // have total size, now assign offsets
+            // total - stoi(offset) + 4?
+            for (int i = 0; i < proc.parameters.size(); i++) {
+                int bytes;
+                if (proc.parameters.at(i).type == "INT") {
+                    bytes = 4;
+                }
+                //cout << "Formal arg " << i << " " << proc.parameters.at(i).offset << endl;
+                int pos = size - stoi(proc.parameters.at(i).offset) + 4 + 4;
+                proc.parameters.at(i).intLabel = "ebp + " + to_string(pos);
+                //cout << "POS " << pos << "intlabel " << proc.parameters.at(i).intLabel << endl;
+            }
+            return size;
         } else {
             parseError(current.getLineNum(), current.getValue());
         }
     }
 }
 
-void formal_arg_list(void)
+int formal_arg_list(GPTMember &proc)
 {
     // <formal_arg_list> -> <formal_arg> { , <formal_arg> }*
-
-    formal_arg();
+    int offset = 0;
+    parameter newParam = formal_arg(offset);
+    if (newParam.type == "INT") {
+        offset+= 4;
+    } else if (newParam.type == "REAL") {
+        offset += 8;
+    }
+    proc.parameters.push_back(newParam);
     while(current.getToken() == ",") {
         current = getNext();
-        formal_arg();
+        newParam = formal_arg(offset);
+        //offset += stoi(newParam.offset);
+        if (newParam.type == "INT") {
+            offset+= 4;
+        } else if (newParam.type == "REAL") {
+            offset += 8;
+        }
+        proc.parameters.push_back(newParam);
     }
+    return offset;
 }
 
-void formal_arg(void)
+parameter formal_arg(int offset)
 {
     // <formal_arg> -> <call_by> IDENTIFIER : <dcl_type>
 
     call_by();
     if (current.getToken() == "IDENTIFIER") {
+        string id = current.getValue();
         current = getNext();
         if (current.getToken() == ":") {
             current = getNext();
-            dcl_type();
+            string type = current.getValue();
+            dcl_type(); // make sure type is ok
+            if ((type == "INT") || (type == "STRING"))
+                offset += 4;
+            else
+                offset += 8;
+            parameter arg;
+            arg.id = id;
+            arg.type = type;
+            arg.offset = to_string(offset);
+            arg.callbyVAR = false; // assume false
+            return arg;
         } else {
             parseError(current.getLineNum(), current.getValue());
         }
@@ -775,8 +815,14 @@ void actual_arg_list(string caller)
 string actual_arg(void)
 {
     // <actual_arg> -> <expression>
-
-    return expression();
+    string type = expression();
+    if (type == "REAL") {
+        comment("Real arg, needs to go on normal stack");
+        emitLine("", "fstp qword", "[_TEMP_REAL_]", "");
+        emitLine("", "push dword", "[_TEMP_REAL_+4]", "");
+        emitLine("", "push dword", "[_TEMP_REAL_]", "");
+    }
+    return type;
 }
 
 void procedure_list(void)
@@ -830,6 +876,35 @@ void proc_body(GPTMember proc)
     // first clear out local tables
     LST.clear();
     LLT.clear();
+    // add FORMAL args to LST
+    /*
+    stack<parameter> params;
+    for (const parameter &p : proc.parameters) {
+        params.push(p);
+    }
+    while (!params.empty()) {
+        LSTMember arg; params.top().id = params.top().id;
+        arg.offset = params.top().offset;
+        arg.internalID = "ebp + " + to_string(stoi(params.top().offset) + 4);
+        arg.type = params.top().type;
+        LST.insert(arg);
+        params.pop();
+    }
+    */
+    
+    for (const parameter &p : proc.parameters) {
+        LSTMember arg; arg.id = p.id;
+        //cout << p.intLabel << endl;
+        arg.offset = p.offset;
+        arg.internalID = p.intLabel;
+        //arg.internalID = "ebp + " + to_string(stoi(p.offset) + 4);
+        arg.type = p.type;
+        LST.insert(arg);
+    }
+    for (const LSTMember &mem : LST) {
+        //cout << mem.internalID << "asdf" << endl;
+    }
+    // then add local vars
     dcl_definitions(false); // not global variables
     proc.storage = getLocalStorage(); // figure out how much local storage necessary
     //cout << "TESTING" << proc.storage << endl;
@@ -1179,7 +1254,8 @@ void call_statement(void)
         actual_args("PROC");
         if (current.getToken() == ";") {
             //emitGoto((*it).label);
-            emitCall((*it).label);
+            emitCall((*it));
+
             //callLabels.push((*it).exit); 
             current = getNext();
         } else {
@@ -1583,7 +1659,7 @@ string factor(void)
                 // found!
                 factorType = (*localIt).type;
                 string idStr = "ebp - " + (*localIt).offset;
-                emitVar(idStr, factorType);
+                emitVar((*localIt).internalID, factorType);
             } else {
                 // then check global symbol table
                 GSTMember globalTemp; globalTemp.id = name;
@@ -1594,7 +1670,6 @@ string factor(void)
                     emitVar((*globalIt).id, factorType);
                 } else {
                     // not found anywhere!
-                    //cout << "trig" << current.getLineNum() << endl;
                     semanticError(current.getLineNum(), current.getValue() + " not defined!");
                 }
             }
@@ -1705,7 +1780,7 @@ string func_ref(GPTMember proc) {
         semanticError(current.getLineNum(), "Procedure " + name + "not defined!");
         }*/
     actual_args("PROC");
-    emitCall(proc.label);
+    emitCall(proc);
 
     emitFuncRef(type);
     return type;

@@ -32,6 +32,8 @@ struct parameter
 {
     string id; // identifier
     string type; // type
+    string offset;
+    string intLabel;
     bool callbyVAR;
 };
 
@@ -51,6 +53,7 @@ struct GPTMember
 {
     string id; // Procedure ID
     vector<parameter> parameters; // list of parameters
+    int paramSize; // storage for arguments
     string returnType; // return type
     int storage; // local storage in BYTES
     string label; // entry label

@@ -1,0 +1,23 @@
+global
+dcl
+  h : int;
+proc
+  func : real;
+procedure main;
+      dcl
+        x : real;
+        s : string;
+begin {main}
+x := func;
+writeln(x);
+end{main}
+
+procedure func;
+
+dcl
+  s : real;
+begin
+s := 4.5;
+return s;
+end
+.
