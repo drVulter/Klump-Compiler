@@ -14,12 +14,11 @@ _main:   	 ; Begin MAIN
 	sub esp, 28 	 ; Reserve memory for local variables
 	push dword [_L_0_] 	 ; Emitting a variable
 	push dword [_L_1_] 	 ; Emitting a variable
+	push dword [_L_2_] 	 ; Emitting a variable
 ;; Call statement
 	call _ENTER_FUNC 
-	add esp, 8 
-	push eax 	 ; put value back on stack
-	pop dword [_TEMP_INT_] 	 ; put integer operand into temporary storage
-	fild dword [_TEMP_INT_] 	 ; then put that value onto floating point stack
+	add esp, 12 
+	fld qword [_TEMP_REAL_] 
 ;; Assignment
 	fstp qword [ebp-8] 
 	add esp, -4 	 ; Stack fix
@@ -57,18 +56,23 @@ _EXIT_MAIN:   	 ; End of MAIN
 _ENTER_FUNC:   	 ; Begin FUNC
 	push ebp 	 ; Save base pointer
 	mov ebp, esp 	 ; new base
-	sub esp, 16 	 ; Reserve memory for local variables
+	sub esp, 12 	 ; Reserve memory for local variables
+	push dword [ebp + 16] 	 ; Emitting a variable
 	push dword [ebp + 12] 	 ; Emitting a variable
+;; Emitting an addop (+)
+	pop ebx 
+	pop eax 
+	add eax, ebx 	 ; Addop!
+	push eax 	 ; Storing result on stack
 	push dword [ebp + 8] 	 ; Emitting a variable
 ;; Emitting an addop (+)
 	pop ebx 
 	pop eax 
 	add eax, ebx 	 ; Addop!
 	push eax 	 ; Storing result on stack
-	fld qword [_L_2_] 	 ; Emitting a real variable
-;; Emitting an addop (+)
-	fadd  	 ; Addop, result on floating point stack
 ;; Return statement
+	pop dword [_TEMP_INT_] 	 ; put integer operand into temporary storage
+	fild dword [_TEMP_INT_] 	 ; then put that value onto floating point stack
 	fstp qword [_TEMP_REAL_] 
 	jmp _EXIT_FUNC 
 _EXIT_FUNC:   	 ; End of FUNC
@@ -90,6 +94,6 @@ _NEW_LINE_: db 10, 0 	 ; Just a carriage return
 _NEGATIVE_: dq -1.0  	 ; Just negative one
 _INT_IN_: db "%d", 0  
 _REAL_IN_: db "%lf", 0  
-_L_2_: dq 0.0 
-_L_1_: dd 2 
-_L_0_: dd 3 
+_L_0_: dd 12 
+_L_1_: dd 3 
+_L_2_: dd 5 

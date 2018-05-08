@@ -46,8 +46,8 @@ int formal_arg_list(GPTMember &proc);
 parameter formal_arg(int offset);
 void call_by(void);
 string return_type(void);
-void actual_args(string caller);
-void actual_arg_list(string caller);
+vector<string> actual_args(string caller);
+vector<string> actual_arg_list(string caller);
 string actual_arg(void);
 void procedure_list(void);
 void procedure(void);
@@ -126,9 +126,9 @@ stack<string> endLoopStack;
 // labels for returning from call statements
 //stack<string> callLabels;
 
-// procedure that we are currently in
-//GPTMember globalCurrentProc;
+// procedure that we are currently in and the type of that procedure
 string globalCurrentExit;
+string globalCurrentType;
 
 int main(void)
 {
@@ -188,7 +188,7 @@ string typeCheck(string a, string b)
                 return a; // same type!
             } else if (a > b) {
                 // need promotion BOOL -> INT -> REAL
-                if (promote(b, a, "rsp")) {
+                if (promote(b, a)) {
                     return a;
                 } else {
                     semanticError(current.getLineNum(), "Cannot promote " + b + "->" + a + "!");
@@ -758,27 +758,28 @@ string return_type(void)
     return atomic_type();
 }
 
-void actual_args(string caller)
+vector<string> actual_args(string caller)
 {
     // <actual_args> -> ( <actual_arg_list> ) | e
 
     vector<string> argTypes;
     if (current.getToken() == "(") {
         current = getNext();
-        actual_arg_list(caller);
+        argTypes = actual_arg_list(caller);
         if (current.getToken() == ")") {
             current = getNext();
         } else {
             parseError(current.getLineNum(), current.getValue());
         }
     }
+    return argTypes;
     // otherwise assume no actual arguments
 }
 
-void actual_arg_list(string caller)
+vector<string> actual_arg_list(string caller)
 {
     // <actual_arg_list> -> <actual_arg> { , <actual_arg> }*
-    vector<string> argStack; // will hold types of the arguments, args themleves already on x8086 STACK
+    vector<string> args; // will hold types of the arguments, args themleves already on x8086 STACK
     string type;
     if ((caller == "WRITE")) {
         modStack(-4);
@@ -803,13 +804,14 @@ void actual_arg_list(string caller)
             //cout << "TEST" << current.getValue() << endl;
             } */
     } else {
-        argStack.push_back(actual_arg());
+        args.push_back(actual_arg());
         while (current.getToken() == ",") {
             current = getNext();
-            argStack.push_back(actual_arg());
+            args.push_back(actual_arg());
 
         }
     }
+    return args;
 }
 
 string actual_arg(void)
@@ -861,6 +863,7 @@ GPTMember proc_head(void)
         if (current.getToken() == ";") {
             current = getNext();
             globalCurrentExit = (*it).exit;
+            globalCurrentType = (*it).returnType;
             return (*it);
         } else {
             parseError(current.getLineNum(), current.getValue());
@@ -1213,7 +1216,7 @@ void assignment_statement(void)
                 emitAssignment(name, lType);
             } else if (lType > rType) {
                 // promote rType
-                if (promote(rType, lType, "esp")) {
+                if (promote(rType, lType)) {
                     emitAssignment(name, lType);
                 } else {
                     semanticError(current.getLineNum(), "cannot promote " + rType + "->" + lType);
@@ -1280,7 +1283,7 @@ void return_statement(void)
         //callLabels.pop();
             if (current.getToken() == ";") {
                 //cout << "TEST" << globalCurrentProc.id << globalCurrentProc.exit << endl;
-                emitReturn(type, globalCurrentExit);
+                emitReturn(type,globalCurrentType, globalCurrentExit, current.getLineNum());
                 current = getNext();
             } else {
                 parseError(current.getLineNum(), current.getValue());
@@ -1779,7 +1782,18 @@ string func_ref(GPTMember proc) {
     } else {
         semanticError(current.getLineNum(), "Procedure " + name + "not defined!");
         }*/
-    actual_args("PROC");
+    vector<string> argTypes = actual_args("PROC");
+    // check arg sizes
+    if (argTypes.size() != proc.parameters.size()) {
+        semanticError(current.getLineNum(), "Expected " + to_string(proc.parameters.size()) + " arguments, received "
+                      + to_string(argTypes.size()));
+    }
+    // then check types one by one
+    for (int i = 0; i < argTypes.size(); i++) {
+        if (argTypes.at(i) != proc.parameters.at(i).type) {
+            semanticError(current.getLineNum(), "Wrong type for argument " + to_string(i));
+        }
+    }
     emitCall(proc);
 
     emitFuncRef(type);

@@ -18,7 +18,7 @@
 
 // Prototypes
 string makeLabel(void);
-bool promote(string emp, string boss, string address);
+bool promote(string emp, string boss);
 void emitLine(string label, string opcode, string operands, string comment);
 void emitNewLine(void);
 void modStack(int n);
@@ -46,7 +46,7 @@ void emitElseEnd(string done);
 void emitWhileStart(string start);
 void emitWhileNext(string start);
 void emitDone(string label);
-void emitReturn(string type, string label);
+void emitReturn(string type, string otherType, string label, int lineNum);
 void emitFuncRef(string type);
 void emitMulop(string opCode, string type);
 void emitAddop(string opCode, string type);
@@ -74,7 +74,7 @@ string makeLabel(void)
     return "_L_" + strCount + "_";
 }
 
-bool promote(string emp, string boss, string address)
+bool promote(string emp, string boss)
 {
 
     // try to promote emp type to boss type
@@ -524,18 +524,41 @@ void emitDone(string label)
     emitLine(label, "nop", "", "");
 }
 
-void emitReturn(string type, string label)
+void emitReturn(string type, string otherType, string label, int lineNum)
 {
     // puts a return value in registers for access from the previous function
     comment("Return statement");
-    if (type == "INT") {
-        // return val should be on stack, so pop it to eax
-        emitLine("", "pop", "eax", "put into register");
-    } else if (type == "REAL") {
-        emitLine("", "fstp qword", "[_TEMP_REAL_]", "");
-    } else if (type == "STRING") {
-        emitLine("", "pop", "eax", "");
-        //emitLine("", "lea", "eax, [ebx]", "");
+    // type conversion
+    if (type == otherType) {
+        
+    } else if (type < otherType) {
+        if (promote(type, otherType)) {
+            if (otherType == "INT") {
+                // return val should be on stack, so pop it to eax
+                emitLine("", "pop", "eax", "put into register");
+            } else if (otherType == "REAL") {
+                emitLine("", "fstp qword", "[_TEMP_REAL_]", "");
+            } else if (otherType == "STRING") {
+                emitLine("", "pop", "eax", "");
+                //emitLine("", "lea", "eax, [ebx]", "");
+            }
+        } else {
+            semanticError(lineNum, "Wrong return type!");
+        }
+    } else {
+        if (demote(type, otherType)) {
+            if (otherType == "INT") {
+                // return val should be on stack, so pop it to eax
+                emitLine("", "pop", "eax", "put into register");
+            } else if (otherType == "REAL") {
+                emitLine("", "fstp qword", "[_TEMP_REAL_]", "");
+            } else if (otherType == "STRING") {
+                emitLine("", "pop", "eax", "");
+                //emitLine("", "lea", "eax, [ebx]", "");
+            }
+        } else {
+            semanticError(lineNum, "Wrong return type!");
+        }
     }
     emitGoto(label);
 }

@@ -2,20 +2,19 @@ global
 dcl
   h : int;
 proc
-  func (x : int, y : int) : int;
+  func (x : int, y : int, z : int) : real;
 procedure main;
       dcl
         x : real;
 begin {main}
-x :=  func(3,2);
+x :=  func(12, 3, 5);
 writeln(x);
 end{main}
 
 procedure func;
 
 dcl
-  m : int;
 begin
-return x + y + 0.0;
+return x + y + z;
 end
 .
