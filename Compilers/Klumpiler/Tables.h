@@ -32,6 +32,7 @@ struct parameter
 {
     string id; // identifier
     string type; // type
+    int size;
     string offset;
     string intLabel;
     bool callbyVAR;

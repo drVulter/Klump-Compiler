@@ -46,6 +46,7 @@ void emitElseEnd(string done);
 void emitWhileStart(string start);
 void emitWhileNext(string start);
 void emitDone(string label);
+void emitForStatement(bool to);
 void emitReturn(string type, string otherType, string label, int lineNum);
 void emitFuncRef(string type);
 void emitMulop(string opCode, string type);
@@ -54,6 +55,9 @@ void emitNot(void);
 bool emitNeg(string type);
 void emitNumber(string num);
 void emitVar(string var, string type);
+void findArrayElem(string name, string type, int elemSize, bool isGlobal);
+void emitArrayElem(string type);
+void emitArrayElemAddr();
 void emitLiteral(string label, string type);
 void emitBss(set<GSTMember> &vars, set<GTTMember> &types);
 void emitData(set<GSTMember> &consts, set<GLTMember> &literals);
@@ -209,11 +213,16 @@ void emitCall(GPTMember proc)
     // clean up arguments
     int clean = 0;
     for (int i = 0; i < proc.parameters.size(); i++) {
+        /*
         if (proc.parameters.at(i).type == "INT") {
             clean += 4;
         } else if (proc.parameters.at(i).type == "REAL") {
             clean += 8;
+        } else {
+            // figure out type
         }
+        */
+        clean += proc.parameters.at(i).size;
     }
     emitLine("", "add", "esp, " + to_string(clean), "");
 }
@@ -538,6 +547,18 @@ void emitDone(string label)
     emitLine(label, "nop", "", "");
 }
 
+void emitForStatement(bool to)
+{
+    string step;
+    emitLine("", "pop", "edx", "Destination");
+    emitLine("", "pop", "ecx", "start");
+    if (to) {
+        step = "1";
+    } else {
+        step = "-1";
+    }
+}
+
 void emitReturn(string type, string otherType, string label, int lineNum)
 {
     // puts a return value in registers for access from the previous function
@@ -628,20 +649,39 @@ void emitVar(string var, string type)
 
 }
 
-void emitArrayElem(string name, string type, int elemSize, bool isGlobal)
+void findArrayElem(string name, string type, int elemSize, bool isGlobal)
 {
     comment("Pushing array element onto the stack");
     if (isGlobal) {
         emitLine("", "mov", "esi, " + name, "Store address of first element");
-        emitLine("", "pop", "eax", "get index");
-        emitLine("", "mov", "ebx, " + to_string(elemSize), "")
-        emitLine("", "mul", "ebx", "Adjust for size");
-        emitLine("", "add", "esi, eax", "Get element at corrent index");
-        if (type == "REAL") {
-            emitLine("", "push", "[esi+4]", "pushing real in two parts");
-        }
-        emitLine("", "push", "[esi]", "push value to stack");
+    } else {
+        emitLine("", "lea", "esi, [" + name + "]", "");
     }
+    emitLine("", "pop", "eax", "get index");
+    emitLine("", "mov", "ebx, " + to_string(elemSize), "");
+    emitLine("", "mul", "ebx", "Adjust for size");
+    emitLine("", "add", "esi, eax", "Get element at corrent index");
+}
+
+void emitArrayElem(string type)
+{
+    if (type == "INT") {
+        emitLine("", "push dword", "[esi]", "push value to stack");
+    } else if (type == "REAL") {
+        emitLine("", "fld qword", "[esi]", "push real array val to stack");
+    }
+}
+
+void emitArrayElemAddr()
+{
+    emitLine("", "push dword", "esi", "putting addresss on top of stack");
+}
+
+void emitEntireArray(string name, string type, int elemSize, int size, bool isGlobal)
+{
+    comment("Putting an entire array on the stack!");
+    string loopLabel = makeLabel();
+
 }
 
 void emitLiteral(string label, string type)

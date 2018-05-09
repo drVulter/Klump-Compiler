@@ -1,0 +1,66 @@
+global
+
+  const
+    maxsize     : 100;
+    prompt      : 'enter the number of actual elements (1 <= n <= 100)';
+
+  type
+    arraytype  : array [maxsize] of real;
+
+  dcl
+    actualsize : int;
+
+procedure main;
+
+  dcl
+    data        : arraytype;
+    duplicate   : arraytype;
+    total       : real;
+    mean        : real;
+    i           : int;
+
+begin { main }
+
+  write (prompt);
+  readln (actualsize);
+
+  i := 0;
+  while (i < actualsize)
+    do;  
+       write ('data [',i+1,']: ');
+       readln (data[i]);
+       i := i + 1;
+    end;
+  writeln;
+
+  i := 0;
+  while (i < actualsize)
+    do;
+      writeln ('data [',i+1,'] = ',data[i]);
+      i := i + 1;
+    end;
+  writeln;
+
+  duplicate := data;
+{
+  i := 0;
+  while (i < actualsize)
+    do;
+      writeln ('duplicate [',i+1,'] = ',duplicate[i]);
+      i := i + 1;
+    end;
+  writeln;
+
+  i := 0;
+  total := 0.0;
+  while (i < actualsize)
+    do;
+      total := total + data[i];
+      i := i + 1;
+    end;
+  mean := total / actualsize;
+  writeln ('the mean for the sample of size ',actualsize,' is ',mean);
+  writeln;
+}
+end   { main }
+.

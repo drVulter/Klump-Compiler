@@ -727,11 +727,22 @@ parameter formal_arg(int offset)
             dcl_type(); // make sure type is ok
             if ((type == "INT") || (type == "STRING"))
                 offset += 4;
-            else
+            else if (type == "REAL")
                 offset += 8;
+            else
+                offset += 4; //array address
             parameter arg;
             arg.id = id;
             arg.type = type;
+            GTTMember look; look.typeID = type;
+            set<GTTMember>::iterator iter = GTT.find(look);
+            if (iter != GTT.end()) {
+                // found!
+                //arg.size = (*iter).size;
+            } else {
+                semanticError(current.getLineNum(), "Cannot find type " + type + "!");
+            }
+            //offset += arg.size;
             arg.offset = to_string(offset);
             arg.callbyVAR = false; // assume false
             return arg;
@@ -1096,101 +1107,151 @@ void exec_statement(void)
 
 void read_statement(bool isReadln)
 {
-    /* <read_statement> -> READ <actual_args> ;
-       | READLN <actual_args> ;
-     */
-    if ((current.getToken() == "READ") || (current.getToken() == "READLN")) {
-        current = getNext();
-        if (current.getToken() == "(") {
+        /* <read_statement> -> READ <actual_args> ;
+        | READLN <actual_args> ;
+        */
+        if ((current.getToken() == "READ") || (current.getToken() == "READLN")) {
             current = getNext();
-            while (current.getToken() == "IDENTIFIER") {
-                string name = current.getValue();
-                // lookup name in LST, then GST
-                LSTMember tempLST; tempLST.id = name;
-                set<LSTMember>:: iterator it = LST.find(tempLST);
-                if (it != LST.end()) { // found
-                    emitRead((*it).internalID, (*it).type, true);
-                } else {
-                    // check GST
-                    GSTMember tempGST; tempGST.id = name;
-                    set<GSTMember>:: iterator gIter = GST.find(tempGST);
-                    if (gIter != GST.end()) {
-                        if ((*gIter).isConst) {
-                            semanticError(current.getLineNum(), "Cannot overwrite a constant!");
+            if (current.getToken() == "(") {
+                current = getNext();
+                while (current.getToken() == "IDENTIFIER") {
+                    string name = current.getValue();
+                    current = getNext();
+                    // lookup name in LST, then GST
+                    LSTMember tempLST; tempLST.id = name;
+                    set<LSTMember>:: iterator it = LST.find(tempLST);
+                    if (it != LST.end()) { // found
+                        if (((*it).type != "INT") && ((*it).type != "REAL") && ((*it).type != "STRING")) {
+                            qualifier();
+                            GTTMember look; look.typeID = (*it).type;
+                            set<GTTMember>::iterator typeIt = GTT.find(look);
+                            if (typeIt != GTT.end()) {
+                                string type = (*typeIt).arrayInfo.type;
+                                int elemSize;
+                                string inStr;
+                                if (type == "INT") {
+                                    elemSize = 4;
+                                    inStr = "_INT_IN";
+                                } else if (type == "REAL") {
+                                    elemSize = 8;
+                                    inStr = "_REAL_IN_";
+                                }
+                                findArrayElem((*it).internalID, type, elemSize, false);
+                                modStack(-4);
+                                emitArrayElemAddr();
+                                emitLine("", "push dword", inStr, "");
+                                emitLine("", "call", "_scanf", "Make the call");
+                                emitLine("", "add", "esp, 12", "Fix the stack");
+
+                            }
+                        } else {
+                            emitRead((*it).internalID, (*it).type, true);
                         }
-                        emitRead(name, (*gIter).type, false);
+                    } else {
+                        // check GST
+                        GSTMember tempGST; tempGST.id = name;
+                        set<GSTMember>:: iterator gIter = GST.find(tempGST);
+                        if (gIter != GST.end()) {
+                            if ((*gIter).isConst) {
+                                semanticError(current.getLineNum(), "Cannot overwrite a constant!");
+                            }
+                            emitRead(name, (*gIter).type, false);
+                        }
+                    }
+                    //current = getNext();
+                    if (current.getToken() == ",") {
+                        current = getNext();
+                    } else if (current.getToken() == ")") {
+                        ; // nothing
+                    } else {
+                        parseError(current.getLineNum(), current.getValue());
                     }
                 }
-                current = getNext();
-                if (current.getToken() == ",") {
+                if (current.getToken() == ")") {
                     current = getNext();
-                } else if (current.getToken() == ")") {
-                    ; // nothing
+                    if (current.getToken() == ";") {
+                        current = getNext();
+                        if (isReadln)
+                            emitReadln();
+                    } else {
+                        parseError(current.getLineNum(), current.getValue());
+                    }
                 } else {
                     parseError(current.getLineNum(), current.getValue());
                 }
+
             }
-            if (current.getToken() == ")") {
+        } else { // safe to use else here?
+            current = getNext();
+            actual_args("READ");
+            if (current.getToken() == ";") {
                 current = getNext();
-                if (current.getToken() == ";") {
-                    current = getNext();
-                    if (isReadln)
-                        emitReadln();
-                } else {
-                    parseError(current.getLineNum(), current.getValue());
-                }
             } else {
                 parseError(current.getLineNum(), current.getValue());
             }
-
         }
-    } else { // safe to use else here?
+    }
+
+    void write_statement(void)
+    {
+        /* <write_statement> -> WRITE <actual_args> ;
+        | WRITELN <actual_args> ;
+        */
+        bool isWriteln = false;
+        if (current.getToken() == "WRITELN") {
+            isWriteln = true;
+        }
         current = getNext();
-        actual_args("READ");
+        actual_args("WRITE");
         if (current.getToken() == ";") {
+            if (isWriteln)
+                emitWriteln();
             current = getNext();
         } else {
             parseError(current.getLineNum(), current.getValue());
         }
     }
-}
 
-void write_statement(void)
-{
-    /* <write_statement> -> WRITE <actual_args> ;
-       | WRITELN <actual_args> ;
-     */
-    bool isWriteln = false;
-    if (current.getToken() == "WRITELN") {
-        isWriteln = true;
-    }
-    current = getNext();
-    actual_args("WRITE");
-    if (current.getToken() == ";") {
-        if (isWriteln)
-            emitWriteln();
-        current = getNext();
-    } else {
-        parseError(current.getLineNum(), current.getValue());
-    }
-}
+    void assignment_statement(void)
+    {
+        // <assignment_statement> -> <lval> := <expression> ;
 
-void assignment_statement(void)
-{
-    // <assignment_statement> -> <lval> := <expression> ;
-
-    //string nameStr = val(); // Save the name!!
-    string name;
-    string lType; // type being assigned to
-    string id = lval();
-    LSTMember tempLST; tempLST.id = id;
-    set<LSTMember>:: iterator it = LST.find(tempLST);
-    // first check LST
-    if (it != LST.end()) {
-        // found!
-        //name = "[ebp-" + (*it).offset + "]";
-        name = "[" + (*it).internalID + "]";
-        lType = (*it).type;
+        //string nameStr = val(); // Save the name!!
+        string name;
+        string lType; // type being assigned to
+        string id = lval();
+        LSTMember tempLST; tempLST.id = id;
+        set<LSTMember>:: iterator it = LST.find(tempLST);
+        // first check LST
+        if (it != LST.end()) {
+            // found!
+            //name = "[ebp-" + (*it).offset + "]";
+            name = "[" + (*it).internalID + "]";
+            lType = (*it).type;
+            if ((lType != "INT") && (lType != "REAL") && (lType != "STRING")) {
+                if (current.getValue() == "[") {
+                    qualifier(); // puts correct index on stack
+                name = "[esi]";
+                } else {
+                    name = "esi";
+                }
+                GTTMember look; look.typeID = lType;
+                set<GTTMember>::iterator iter = GTT.find(look);
+                if (iter != GTT.end()) {
+                    // found!
+                    lType = (*iter).arrayInfo.type;
+                    int elemSize;
+                    if (lType == "INT") {
+                        elemSize = 4;
+                    } else if (lType == "REAL") {
+                        elemSize = 8;
+                    }
+                    findArrayElem((*it).internalID, lType, elemSize, false);
+                // dont push to stack yet!
+            } else {
+                semanticError(current.getLineNum(), "Cannot find type " + lType + "!");
+            }
+        }
     } else {
         // check GST
         GSTMember tempGST; tempGST.id = id;
@@ -1202,6 +1263,26 @@ void assignment_statement(void)
             } else {
                 name = "[" + (*it).id + "]";
                 lType = (*it).type;
+                if ((lType != "INT") && (lType != "REAL") && (lType != "STRING")) {
+                    qualifier(); // puts correct index on stack
+                    GTTMember look; look.typeID = lType;
+                    set<GTTMember>::iterator iter = GTT.find(look);
+                    if (iter != GTT.end()) {
+                        // found!
+                        lType = (*iter).arrayInfo.type;
+                        int elemSize;
+                        if (lType == "INT") {
+                            elemSize = 4;
+                        } else if (lType == "REAL") {
+                            elemSize = 8;
+                        }
+                        findArrayElem((*it).id, lType, elemSize, true);
+                        // dont push to stack yet!
+                        name = "[esi]";
+                    } else {
+                        semanticError(current.getLineNum(), "Cannot find type " + lType + "!");
+                    }
+                }
             }
         } else {
             // can't find it!
@@ -1490,23 +1571,56 @@ void for_statement(void)
        { TO | DOWNTO } <expression> <statement>
      */
     // already got FOR so...
+    string start = makeLabel();
+    string done = makeLabel();
+    bool isTo = true;
     if (current.getToken() == "IDENTIFIER") {
+        string name = current.getValue();
+        string lType;
+        // first check LST
+        LSTMember look; look.id = name;
+        set<LSTMember>::iterator it = LST.find(look);
+        if (it != LST.end()) {
+            // found!
+            //name = "[ebp-" + (*it).offset + "]";
+            name = "[" + (*it).internalID + "]";
+            lType = (*it).type;
+        } else {
+            /// check GST
+            GSTMember seek; seek.id = name;
+            set<GSTMember>::iterator globalIt = GST.find(seek);
+            if (globalIt != GST.end()) {
+                name = (*globalIt).id;
+                lType = (*globalIt).type;
+            } else {
+                semanticError(current.getLineNum(), "I can't find this variable!");
+            }
+        }
+        if (lType != "INT") {
+            semanticError(current.getLineNum(), "Cannot use non-integer counter!");
+        }
         current = getNext();
         if (current.getToken() == ":=") {
             current = getNext();
-            string temp = expression();
+            string rType = expression();
+            if (demote(rType, lType)) {
+                emitAssignment(name, lType);
+            } else {
+                semanticError(current.getLineNum(), "Cannot convert that to an int for counter!");
+            }
             // next two cases separate for compiling
             if (current.getToken() == "TO") {
                 current = getNext();
-                string temp = expression();
-                statement();
+                string type2 = expression();
             } else if (current.getToken() == "DOWNTO") {
+                isTo = false;
                 current = getNext();
-                string temp = expression();
-                statement();
+                string type2 = expression();
             } else {
                 parseError(current.getLineNum(), current.getValue());
             }
+            //emitForStatement(start, isTo);
+            statement();
         } else {
             parseError(current.getLineNum(), current.getValue());
         }
@@ -1695,8 +1809,34 @@ string factor(void)
             if (localIt != LST.end()) {
                 // found!
                 factorType = (*localIt).type;
-                string idStr = "ebp - " + (*localIt).offset;
-                emitVar((*localIt).internalID, factorType);
+                //string idStr = "ebp - " + (*localIt).offset;
+                if ((factorType != "INT") && (factorType != "REAL") && (factorType != "STRING")) {
+                    qualifier();
+                    // search the type table!
+                    GTTMember look; look.typeID = factorType;
+                    set<GTTMember>::iterator typeIter = GTT.find(look);
+                    if (typeIter != GTT.end()) {
+                        // found!
+                        factorType = (*typeIter).arrayInfo.type;
+                        int elemSize;
+                        if (factorType == "INT") {
+                            elemSize = 4;
+                        } else if (factorType == "REAL") {
+                            elemSize = 8;
+                        }
+                        //if (qualifier()) {
+                        findArrayElem((*localIt).internalID, factorType, elemSize, false);
+                        emitArrayElem(factorType);
+                        //} else {
+                        // push ENTIRE ARRAY TO STACK!
+                        //emitEntireArray((*localIt).internalID, factorType, elemSize, (*typeIter).size, false);
+                        //}
+                    } else {
+                        semanticError(current.getLineNum(), "Cannot find type " + factorType + "!");
+                    }
+                } else {
+                    emitVar((*localIt).internalID, factorType);
+                }
             } else {
                 // then check global symbol table
                 GSTMember globalTemp; globalTemp.id = name;
@@ -1719,7 +1859,8 @@ string factor(void)
                             } else if (factorType == "REAL") {
                                 elemSize = 8;
                             }
-                            emitArrayElem(name, factorType, elemSize, true);
+                            findArrayElem(name, factorType, elemSize, true);
+                            emitArrayElem(factorType);
                         } else {
                             semanticError(current.getLineNum(), "Cannot find type " + factorType + "!");
                         }
@@ -1735,7 +1876,7 @@ string factor(void)
         }
         //}
 // \epsilon in both cases
-} else if (current.getToken() == "(") {
+    } else if (current.getToken() == "(") {
         current = getNext();
         factorType = expression();
         if (current.getToken() == ")") {
@@ -1869,8 +2010,9 @@ void qualifier(void)
        | . IDENTIFIER <qualifier>
        | e
      */
-
+    bool isSingleElement = false;
     if (current.getToken() == "[") {
+        isSingleElement = true;
         current = getNext();
         string type = expression();
         if (type == "INT") {

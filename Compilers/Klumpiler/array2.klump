@@ -1,0 +1,47 @@
+global
+const
+  size : 20;
+type
+  realArray : array[size] of real;
+  intArray : array[size] of int;
+dcl
+  h : int;
+  a : realArray;
+  b : realArray;
+proc
+  func (arr : intArray);
+procedure main;
+      dcl
+        i : int;
+        r : intArray;
+begin {main}
+i := 0;
+while (i < size)
+do;
+r[i] := 2 * i;
+i := i + 1;
+end;
+i := 0;
+while (i < size)
+do;
+writeln(r[i]);
+i := i + 1;
+end;
+call func(r);
+writeln('check');
+end{main}
+
+procedure func;
+
+dcl
+  i : int;
+begin
+i := 0;
+while (i < size)
+do;
+writeln(arr[i]);
+i := i + 1;
+end;
+end {func}
+
+.

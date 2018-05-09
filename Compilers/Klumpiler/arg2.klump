@@ -1,25 +1,51 @@
 global
 type
-  intArray : array[10] of int;
+  realArray : array[10] of real;
 dcl
   h : int;
-  a : intArray;
+  a : realArray;
+  b : realArray;
 proc
-  func (x : int);
+  func (i : int);
 procedure main;
       dcl
-        z : intArray;
-        x : int;
+        i : int;
+        dot : real;
 begin {main}
-writeln(a[2]);
+i := 0;
+dot := 0.0;
+while (i < 10)
+do;
+a[i] := i;
+b[i] := 1.0;
+i := i + 1;
+end;
+i := 0; {reset i}
+while (i < 10)
+do;
+dot := dot + a[i]*b[i];
+i := i + 1;
+end;
+writeln('dot product is ', dot);
 end{main}
-
+{
 procedure func;
 
 dcl
 s : intArray;
 begin
-x := 12;
-writeln(x);
-end
+i := 0;
+while (i < 10)
+do;
+s[i] := i;
+i := i + 1;
+end;
+i := 0; {reset i}
+while (i < 10)
+do;
+writeln(s[i]);
+i := i + 1;
+end;
+end {func}
+}
 .
