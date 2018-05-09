@@ -1,0 +1,10 @@
+
+  mov ecx, 100
+	lea esi, [ebp - 1600] 
+	lea edi, [ebp - 800]
+copy: 
+	fld qword [edi] 	 ; push real array val to stack
+  fstp qword [esi]
+	add esi, ebx 	 ; Get element at corrent index
+	add edi, ebx 	 ; Get element at corrent index
+  loop copy

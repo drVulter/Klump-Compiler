@@ -87,7 +87,7 @@ void mulop(void);
 bool unary(void);
 string lval(void);
 string func_ref(GPTMember proc);
-void qualifier(void);
+bool qualifier(void);
 // end_klump(void);
 using namespace std;
 
@@ -1131,7 +1131,7 @@ void read_statement(bool isReadln)
                                 string inStr;
                                 if (type == "INT") {
                                     elemSize = 4;
-                                    inStr = "_INT_IN";
+                                    inStr = "_INT_IN_";
                                 } else if (type == "REAL") {
                                     elemSize = 8;
                                     inStr = "_REAL_IN_";
@@ -1218,6 +1218,10 @@ void read_statement(bool isReadln)
 
         //string nameStr = val(); // Save the name!!
         string name;
+        /* Array Stuff */
+        bool single;
+        GTTMember arrType;
+        /* *********** */
         string lType; // type being assigned to
         string id = lval();
         LSTMember tempLST; tempLST.id = id;
@@ -1229,24 +1233,29 @@ void read_statement(bool isReadln)
             name = "[" + (*it).internalID + "]";
             lType = (*it).type;
             if ((lType != "INT") && (lType != "REAL") && (lType != "STRING")) {
-                if (current.getValue() == "[") {
-                    qualifier(); // puts correct index on stack
-                name = "[esi]";
-                } else {
-                    name = "esi";
-                }
+                single = qualifier(); // puts correct index on stack
                 GTTMember look; look.typeID = lType;
                 set<GTTMember>::iterator iter = GTT.find(look);
                 if (iter != GTT.end()) {
                     // found!
-                    lType = (*iter).arrayInfo.type;
+                    if (single)
+                        lType = (*iter).arrayInfo.type;
+                    else {
+                        lType = (*iter).typeID;
+                        arrType = (*iter);
+                    }
                     int elemSize;
                     if (lType == "INT") {
                         elemSize = 4;
                     } else if (lType == "REAL") {
                         elemSize = 8;
                     }
-                    findArrayElem((*it).internalID, lType, elemSize, false);
+                    if (single) {
+                        findArrayElem((*it).internalID, lType, elemSize, false);
+                    } else {
+                        // load address
+                        emitLine("", "lea", "edi, " + name, "Loading address to DESTINATION");
+                    }
                 // dont push to stack yet!
             } else {
                 semanticError(current.getLineNum(), "Cannot find type " + lType + "!");
@@ -1264,21 +1273,31 @@ void read_statement(bool isReadln)
                 name = "[" + (*it).id + "]";
                 lType = (*it).type;
                 if ((lType != "INT") && (lType != "REAL") && (lType != "STRING")) {
-                    qualifier(); // puts correct index on stack
+                    single = qualifier(); // puts correct index on stack
                     GTTMember look; look.typeID = lType;
                     set<GTTMember>::iterator iter = GTT.find(look);
                     if (iter != GTT.end()) {
                         // found!
-                        lType = (*iter).arrayInfo.type;
+                        if (single) {
+                            lType = (*iter).arrayInfo.type;
+                        } else {
+                            lType = (*iter).typeID;
+                            arrType = (*iter);
+                        }
                         int elemSize;
                         if (lType == "INT") {
                             elemSize = 4;
                         } else if (lType == "REAL") {
                             elemSize = 8;
                         }
-                        findArrayElem((*it).id, lType, elemSize, true);
-                        // dont push to stack yet!
-                        name = "[esi]";
+                        if (single) {
+                            findArrayElem((*it).id, lType, elemSize, true);
+                            // dont push to stack yet!
+                            name = "[esi]";
+                        } else {
+                            // load to DESTINATION
+                            emitLine("", "lea", "edi, " + name, "");
+                        }
                     } else {
                         semanticError(current.getLineNum(), "Cannot find type " + lType + "!");
                     }
@@ -1292,12 +1311,18 @@ void read_statement(bool isReadln)
     if (current.getToken() == ":=") {
         current = getNext();
         string rType = expression();
+        //cout << rType << endl;
         if (current.getToken() == ";") {
             // emit the statement
             if (rType == lType) {
-                emitAssignment(name, lType);
+                // check for arrays!
+                if ((lType == "INT") || (lType == "REAL") || (lType == "STRING"))
+                    emitAssignment(name, lType);
+                else
+                    emitArrayAssignment(arrType);
             } else if (lType > rType) {
                 // promote rType
+                cout << lType << " " << rType << endl;
                 if (promote(rType, lType)) {
                     emitAssignment(name, lType);
                 } else {
@@ -1811,26 +1836,27 @@ string factor(void)
                 factorType = (*localIt).type;
                 //string idStr = "ebp - " + (*localIt).offset;
                 if ((factorType != "INT") && (factorType != "REAL") && (factorType != "STRING")) {
-                    qualifier();
+                    bool single = qualifier();
                     // search the type table!
                     GTTMember look; look.typeID = factorType;
                     set<GTTMember>::iterator typeIter = GTT.find(look);
                     if (typeIter != GTT.end()) {
                         // found!
-                        factorType = (*typeIter).arrayInfo.type;
+                        if (single)
+                            factorType = (*typeIter).arrayInfo.type;
                         int elemSize;
                         if (factorType == "INT") {
                             elemSize = 4;
                         } else if (factorType == "REAL") {
                             elemSize = 8;
                         }
-                        //if (qualifier()) {
-                        findArrayElem((*localIt).internalID, factorType, elemSize, false);
-                        emitArrayElem(factorType);
-                        //} else {
-                        // push ENTIRE ARRAY TO STACK!
-                        //emitEntireArray((*localIt).internalID, factorType, elemSize, (*typeIter).size, false);
-                        //}
+                        if (single) {
+                            findArrayElem((*localIt).internalID, factorType, elemSize, false);
+                            emitArrayElem(factorType);
+                        } else {
+                            // load array addresss
+                            emitLine("", "lea", "esi, [" + (*localIt).internalID + "]", "loading base array address");
+                        }
                     } else {
                         semanticError(current.getLineNum(), "Cannot find type " + factorType + "!");
                     }
@@ -1847,20 +1873,26 @@ string factor(void)
                     // see if it is not an atomic type
                     if ((factorType != "INT") && (factorType != "REAL") && (factorType != "STRING")) {
                         // search the type table!
-                        qualifier(); // puts correct index on stack
+                        bool single = qualifier(); // puts correct index on stack
                         GTTMember look; look.typeID = factorType;
                         set<GTTMember>::iterator it = GTT.find(look);
                         if (it != GTT.end()) {
                             // found!
-                            factorType = (*it).arrayInfo.type;
+                            if (single)
+                                factorType = (*it).arrayInfo.type;
                             int elemSize;
                             if (factorType == "INT") {
                                 elemSize = 4;
                             } else if (factorType == "REAL") {
                                 elemSize = 8;
                             }
-                            findArrayElem(name, factorType, elemSize, true);
-                            emitArrayElem(factorType);
+                            if (single) {
+                                findArrayElem(name, factorType, elemSize, true);
+                                
+                            } else {
+                                // load up address
+                                emitLine("", "lea", "esp, " + name, "loading address!");
+                            }
                         } else {
                             semanticError(current.getLineNum(), "Cannot find type " + factorType + "!");
                         }
@@ -2004,7 +2036,7 @@ string func_ref(GPTMember proc) {
 }
 
 
-void qualifier(void)
+bool qualifier(void)
 {
     /* <qualifier> -> [ <expression> ] <qualifier>
        | . IDENTIFIER <qualifier>
@@ -2035,4 +2067,5 @@ void qualifier(void)
             parseError(current.getLineNum(), current.getValue());
         }
     }
+    return isSingleElement;
 }

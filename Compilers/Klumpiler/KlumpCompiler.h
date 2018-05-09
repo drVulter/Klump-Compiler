@@ -37,6 +37,7 @@ void emitWriteln(void);
 void emitRead(string name, string type, bool isLocal);
 void emitReadln(void);
 void emitAssignment(string var, string type);
+void emitArrayAssignment(GTTMember arrayType);
 void emitCompop(string opCode, string type);
 void emitCheck(string thenLbl, string elseLbl);
 void emitThen(string thenLbl);
@@ -430,6 +431,33 @@ void emitAssignment(string var, string type)
     } else if (type == "REAL") {
         emitLine("", "fstp qword", var, "");
     }
+}
+
+void emitArrayAssignment(GTTMember arrayType)
+{
+    // make a copy of an array!
+    string copyLabel = makeLabel();
+    comment("Copying an array...");
+    int elemSize;
+    if (arrayType.arrayInfo.type == "INT") {
+        elemSize = 4;
+    } else if (arrayType.arrayInfo.type == "REAL") {
+        elemSize = 8;
+    }
+    int numElements = arrayType.size / elemSize;
+    emitLine("", "mov", "ecx, " + to_string(numElements), "Counter");
+    emitLine("", "mov", "ebx, " + to_string(elemSize), "size of each element");
+    emitLine(copyLabel, "nop", "", "");
+    if (arrayType.arrayInfo.type == "REAL") {
+        emitLine("", "fld qword", "[esi]", "load source data");
+        emitLine("", "fstp qword", "[edi]", "Into destination");
+    } else if (arrayType.arrayInfo.type == "INT") {
+        emitLine("", "push dword", "[esi]", "load source data");
+        emitLine("", "pop dword", "[edi]", "into dest.");
+    }
+    emitLine("", "add", "esi, ebx", "Increment addresses");
+    emitLine("", "add", "edi, ebx", "Increment addresses");
+    emitLine("", "loop", copyLabel, "");
 }
 
 void emitCompop(string op, string type)
