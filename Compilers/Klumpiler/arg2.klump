@@ -1,20 +1,25 @@
 global
+type
+  intArray : array[10] of int;
 dcl
   h : int;
+  a : intArray;
 proc
-  func (x : int, y : int, z : int) : real;
+  func (x : int);
 procedure main;
       dcl
-        x : real;
+        z : intArray;
+        x : int;
 begin {main}
-x :=  func(12, 3, 5);
-writeln(x);
+writeln(a[2]);
 end{main}
 
 procedure func;
 
 dcl
+s : intArray;
 begin
-return x + y + z;
+x := 12;
+writeln(x);
 end
 .

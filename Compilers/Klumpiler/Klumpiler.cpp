@@ -36,7 +36,7 @@ void record_type(void);
 void fld_list(void);
 void dcl_definitions(bool isGlobal);
 void dcl_list(bool isGlobal);
-void dcl_type(void);
+string dcl_type(void);
 string atomic_type(void);
 void proc_declarations(void);
 void signature_list(void);
@@ -410,8 +410,8 @@ void array_type(string name)
                 current = getNext();
                 if (current.getToken() == "OF") {
                     current = getNext();
-                    type = current.getValue();
-                    dcl_type();
+                    //type = current.getValue();
+                    type = dcl_type();
                     info.range = range; // success!
                     info.type = type;
                 } else {
@@ -427,8 +427,7 @@ void array_type(string name)
                 current = getNext();
                 if (current.getToken() == "OF") {
                     current = getNext();
-                    type = current.getValue();
-                    dcl_type();
+                    type = dcl_type();
                     GSTMember temp;
                     temp.id = rangeStr;
                     set<GSTMember>:: iterator iter = GST.find(temp);
@@ -484,7 +483,7 @@ void fld_list(void)
             current = getNext();
             if (current.getToken() == ":") {
                 current = getNext();
-                dcl_type();
+                string type = dcl_type();
                 if (current.getToken() == ";") {
                     current = getNext();
                         if (current.getToken() == "IDENTIFIER") {
@@ -537,10 +536,9 @@ void dcl_list(bool isGlobal)
         current = getNext();
         if (current.getToken() == ":") {
             current = getNext();
-            string varType = current.getValue();
+            string varType = dcl_type();
             if (varType == "CSTRING")
                 varType = "STRING";
-            dcl_type();
             if (current.getToken() == ";") {
                 current = getNext();
                 // success, so add to table!
@@ -575,14 +573,16 @@ void dcl_list(bool isGlobal)
     }
 }
 
-void dcl_type(void)
+string dcl_type(void)
 {
     // <dcl_type> -> <atomic_type> | IDENTIFIER
     string type;
-    if (current.getToken() == "IDENTIFIER")
+    if (current.getToken() == "IDENTIFIER") {
+        type = current.getValue();
         current = getNext();
-    else
+    } else
         type = atomic_type();
+    return type;
 
 }
 
@@ -1188,7 +1188,8 @@ void assignment_statement(void)
     // first check LST
     if (it != LST.end()) {
         // found!
-        name = "[ebp-" + (*it).offset + "]";
+        //name = "[ebp-" + (*it).offset + "]";
+        name = "[" + (*it).internalID + "]";
         lType = (*it).type;
     } else {
         // check GST
@@ -1254,7 +1255,12 @@ void call_statement(void)
             semanticError(current.getLineNum(), "Procedure " + current.getValue() + " not defined!");
         }
         current = getNext();
-        actual_args("PROC");
+        vector<string> argTypes = actual_args("PROC");
+        // check arg sizes
+        if (argTypes.size() != (*it).parameters.size()) {
+            semanticError(current.getLineNum(), "Expected " + to_string((*it).parameters.size()) + " argument(s), received "
+                          + to_string(argTypes.size()));
+        }
         if (current.getToken() == ";") {
             //emitGoto((*it).label);
             emitCall((*it));
@@ -1585,9 +1591,21 @@ string simple_expression(void)
         //addop();
         current = getNext();
         string otherType = term();
-        string type = typeCheck(seType, otherType); // resolve the types
-        emitAddop(op, type);
-        seType = type; // update the type
+        if (seType == otherType) {
+            // do nothing!
+        } else if (seType < otherType) {
+            if (promote(seType, otherType)) {
+                seType = otherType; // update the type
+            } else {
+                semanticError(current.getLineNum(), "type error!");
+            }
+        } else {
+            if (promote(otherType, seType)) {
+                otherType = seType;
+            }
+        }
+        emitAddop(op, otherType);
+        //string type = typeCheck(seType, otherType); // resolve the types
     }
     return seType;
 }
@@ -1602,9 +1620,20 @@ string term(void)
         string op = current.getToken(); // save the mulop
         current = getNext();
         string otherType = factor();
-        string type = typeCheck(termType, otherType);
-        emitMulop(op, type);
-        termType = type; // update the type
+        if (termType == otherType) {
+            // do nothing!
+        } else if (termType < otherType) {
+            if (promote(termType, otherType)) {
+                termType = otherType; // update the type
+            } else {
+                semanticError(current.getLineNum(), "type error!");
+            }
+        } else {
+            if (promote(otherType, termType)) {
+                otherType = termType;
+            }
+        }
+        emitMulop(op, otherType);
         //mulop();
     }
     return termType;
@@ -1620,14 +1649,19 @@ string factor(void)
         (current.getToken() == "CSTRING")) {
         // check to see if already in Global literal table
         factorType = types[current.getToken()]; // save this type for returning
-        GLTMember temp;
-        temp.value = current.getValue();
-        set<GLTMember>:: iterator it = GLT.find(temp);
+        GLTMember seek;
+        seek.value = current.getValue();
+        if (factorType == "STRING") {
+            seek.value += ", 0";
+        }
+        set<GLTMember>:: iterator it = GLT.find(seek);
         if (it != GLT.end()) {
             // found!
-            emitLiteral((*it).label, (*it).type);
+            emitVar((*it).label, (*it).type);
         } else {
             // Not found, so add to table them emit
+            GLTMember temp;
+            temp.value = current.getValue();
             temp.label = makeLabel();
             temp.type = factorType;
             if (temp.type == "STRING") {
@@ -1670,7 +1704,29 @@ string factor(void)
                 if (globalIt != GST.end()) {
                     // found!
                     factorType = (*globalIt).type;
-                    emitVar((*globalIt).id, factorType);
+                    // see if it is not an atomic type
+                    if ((factorType != "INT") && (factorType != "REAL") && (factorType != "STRING")) {
+                        // search the type table!
+                        qualifier(); // puts correct index on stack
+                        GTTMember look; look.typeID = factorType;
+                        set<GTTMember>::iterator it = GTT.find(look);
+                        if (it != GTT.end()) {
+                            // found!
+                            factorType = (*it).arrayInfo.type;
+                            int elemSize;
+                            if (factorType == "INT") {
+                                elemSize = 4;
+                            } else if (factorType == "REAL") {
+                                elemSize = 8;
+                            }
+                            emitArrayElem(name, factorType, elemSize, true);
+                        } else {
+                            semanticError(current.getLineNum(), "Cannot find type " + factorType + "!");
+                        }
+
+                    } else {
+                        emitVar((*globalIt).id, factorType);
+                    }
                 } else {
                     // not found anywhere!
                     semanticError(current.getLineNum(), current.getValue() + " not defined!");
@@ -1690,6 +1746,11 @@ string factor(void)
     } else if (current.getToken() == "NOT") {
         current = getNext();
         factorType = factor();
+        if (factorType == "BOOL") {
+            emitNot();
+        } else {
+            semanticError(current.getLineNum(), "Can only negate Booleans!");
+        }
     } else {
         parseError(current.getLineNum(), current.getValue());
     }
@@ -1811,7 +1872,12 @@ void qualifier(void)
 
     if (current.getToken() == "[") {
         current = getNext();
-        expression();
+        string type = expression();
+        if (type == "INT") {
+            
+        } else {
+            semanticError(current.getLineNum(), "Cannot use a non integer!");
+        }
         if (current.getToken() == "]") {
             current = getNext();
             qualifier();

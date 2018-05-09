@@ -1,0 +1,57 @@
+global
+
+  const
+    prompt  : 'enter a positive integer (0 terminates): ';
+
+procedure main;
+
+  dcl
+    value   : int;
+    sum     : int;
+    count   : int;
+begin { main }
+
+#1
+  write (prompt);
+  readln (value);
+  if (value <= 0)
+    then goto #2;
+  if ((value % 2) = 0)
+    then writeln ('half is ',value / 2);
+    else do;
+         sum := 0;
+         count := 1;
+         while (count <= value)
+           do;
+           sum := sum + count;
+           count := count + 1;
+           end;
+         writeln ('total is ',sum);
+         end;
+  goto #1;
+
+#2
+  value := 3;
+  while (value <= 100)
+    if (value = 7)
+      then do;
+           writeln (value);
+           break;
+           end;
+      else do;
+           value := value + 1;
+           next;
+           end;
+
+  write (prompt);
+  readln (value);
+  while (value > 1)
+    do;
+    if ((value % 2) = 0)
+      then value := value / 2;
+      else value := 3*value + 1;
+    writeln (value);
+    end;
+
+end  { main }
+.

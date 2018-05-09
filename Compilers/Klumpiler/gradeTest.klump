@@ -1,0 +1,21 @@
+global
+
+    const
+        pi : 3.14159;
+        rad3 : 1.41421;
+        prompt1 : 'enter an integer number: ';
+
+procedure main;
+
+    dcl
+        ix : int;
+        iy : int;
+
+begin {main}
+write(prompt1);
+readln(ix);
+write(prompt1);
+readln(iy);
+writeln('sum is', ix + iy);
+end {main}
+.

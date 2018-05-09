@@ -2,7 +2,7 @@ global
 dcl
   h : int;
 proc
-  func (x : real) : int;
+  func (x : real) : real;
 procedure main;
       dcl
         x : int;
@@ -15,7 +15,6 @@ procedure func;
 dcl
   m : int;
 begin
-writeln(x);
-return x;
+return x*x*x;
 end
 .

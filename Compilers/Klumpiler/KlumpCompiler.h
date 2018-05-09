@@ -50,6 +50,7 @@ void emitReturn(string type, string otherType, string label, int lineNum);
 void emitFuncRef(string type);
 void emitMulop(string opCode, string type);
 void emitAddop(string opCode, string type);
+void emitNot(void);
 bool emitNeg(string type);
 void emitNumber(string num);
 void emitVar(string var, string type);
@@ -450,17 +451,30 @@ void emitCompop(string op, string type)
     } else if (type == "REAL") {
         //emitLine("", "fstp qword", "xmm1", "");
         //emitLine("", "fstp qword", "xmm0", "");
-        emitLine("", "fcomipp", "", "compare top two elements of floating point stack");
+        emitLine("", "fcom", "st0, st1", "compare top two elements of floating point stack");
+        emitLine("", "fstsw", "ax", "");
+        emitLine("", "and", "eax, 0100011100000000B", "");
+        // flip operations since values are reversed on stack
         if (op == "=") {
+            emitLine("", "cmp", "eax, 0100000000000000B", "");
             jump = "je";
         } else if (op == "<") {
-            jump = "jl";
+            emitLine("", "cmp", "eax, 0000000000000000B", "");
+            jump = "je";
         } else if (op == "<=") {
-            jump = "jle";
+            jump = "je";
+            emitLine("", "cmp", "eax, 0000000000000000B", "first check <");
+            emitLine("", jump, resTrue, "make the jump");
+            emitLine("", "cmp", "eax, 0100000000000000B", "then check =");
         } else if (op == ">") {
-            jump = "jg";
+            //jump = "jl";
+            emitLine("", "cmp", "eax, 0000000100000000B", "");
+            jump = "je";
         } else if (op == ">=") {
-            jump = "jge";
+            jump = "je";
+            emitLine("", "cmp", "eax, 0000000100000000B", "");
+            emitLine("", jump, resTrue, "make the jump");
+            emitLine("", "cmp", "eax, 0100000000000000B", "then check =");
         } else if (op == "<>") {
             jump = "jne";
         }
@@ -530,6 +544,15 @@ void emitReturn(string type, string otherType, string label, int lineNum)
     comment("Return statement");
     // type conversion
     if (type == otherType) {
+        if (otherType == "INT") {
+            // return val should be on stack, so pop it to eax
+            emitLine("", "pop", "eax", "put into register");
+        } else if (otherType == "REAL") {
+            emitLine("", "fstp qword", "[_TEMP_REAL_]", "");
+        } else if (otherType == "STRING") {
+            emitLine("", "pop", "eax", "");
+            //emitLine("", "lea", "eax, [ebx]", "");
+        }
         
     } else if (type < otherType) {
         if (promote(type, otherType)) {
@@ -605,6 +628,22 @@ void emitVar(string var, string type)
 
 }
 
+void emitArrayElem(string name, string type, int elemSize, bool isGlobal)
+{
+    comment("Pushing array element onto the stack");
+    if (isGlobal) {
+        emitLine("", "mov", "esi, " + name, "Store address of first element");
+        emitLine("", "pop", "eax", "get index");
+        emitLine("", "mov", "ebx, " + to_string(elemSize), "")
+        emitLine("", "mul", "ebx", "Adjust for size");
+        emitLine("", "add", "esi, eax", "Get element at corrent index");
+        if (type == "REAL") {
+            emitLine("", "push", "[esi+4]", "pushing real in two parts");
+        }
+        emitLine("", "push", "[esi]", "push value to stack");
+    }
+}
+
 void emitLiteral(string label, string type)
 {
     if (type == "INT") {
@@ -652,6 +691,34 @@ void emitMulop(string opCode, string type)
         emitLine("", "cdq", "", "Deal with signs");
         emitLine("", op, "ebx", "Perform operation (like a surgeon)");
         emitLine("", "push", source, "PIOTFS");
+    } else if (type == "BOOL") {
+        string labelTrue = makeLabel();
+        string labelFalse = makeLabel();
+        string labelDone = makeLabel();
+        if (opCode == "AND") {
+            // both ops must be TRUE!
+            emitLine("", "pop", "eax", "");
+            emitLine("", "pop", "ebx", "");
+            /*
+            emitLine("", "cmp", "eax, 1");
+            emitLine("", "jne", labelFalse, "false, so false!");
+            emitLine("", "cmp", "ebx, 1", "");
+            emitLine("", "jne", labelFalse, "false, so false!");
+            emitLine("", "push", "1", "passed both so push true, then go to DONE");
+            emitLine("","jmp", labelDone, "");
+            */
+            emitLine("", "add", "eax, ebx", "");
+            emitLine("", "cmp", "eax, 2", "were they both true?");
+            emitLine("", "jne", labelFalse, "nope!");
+            emitLine(labelTrue, "nop", "", "");
+            emitLine("", "push", "1", "TRUE!");
+            emitLine("", "jmp", labelDone, "");
+            emitLine(labelFalse, "nop", "", "");
+            emitLine("", "push", "0", "FALSE!");
+            emitLine(labelDone, "nop", "", "");
+        } else {
+            // shouldnt happen, right?
+        }
     }
 }
 
@@ -675,6 +742,21 @@ void emitAddop(string opCode, string type)
             op = "fsub";
         }
         emitLine("", op, "", "Addop, result on floating point stack");
+    } else if (type == "BOOL") {
+        string labelTrue = makeLabel();
+        string labelFalse = makeLabel();
+        string labelDone = makeLabel();
+        emitLine("", "pop", "eax", "");
+        emitLine("", "pop", "ebx", "");
+        emitLine("", "add", "eax, ebx", "");
+        emitLine("", "cmp", "eax, 0", "was one true?");
+        emitLine("", "je", labelFalse, "nope!");
+        emitLine(labelTrue, "nop", "", "");
+        emitLine("", "push", "1", "TRUE!");
+        emitLine("", "jmp", labelDone, "");
+        emitLine(labelFalse, "nop", "", "");
+        emitLine("", "push", "0", "FALSE!");
+        emitLine(labelDone, "nop", "", "");
     }
     /*
     // do assembly, assume operands (terms) already on stack
@@ -685,7 +767,21 @@ void emitAddop(string opCode, string type)
     cout << "push eax\n"; // may need to save for later
     */
 }
-
+void emitNot(void)
+{
+    comment("Logical negation");
+    string labelTrue = makeLabel();
+    string labelFalse = makeLabel();
+    string labelDone = makeLabel();
+    emitLine("", "pop", "eax", "");
+    emitLine("", "cmp", "eax, 1", "");
+    emitLine("", "jne", labelFalse, "false!");
+    emitLine("", "push", "0", "Was true, so push false!");
+    emitLine("", "jmp", labelDone, "");
+    emitLine(labelFalse, "nop", "", "");
+    emitLine("", "push", "1", "was false, so flip to true!");
+    emitLine(labelDone, "nop", "", "Done with negation");
+}
 bool emitNeg(string type)
 {
     bool success = true;

@@ -1,0 +1,92 @@
+global
+
+  const
+    prompt1 : 'enter x: ';
+    prompt2 : 'enter n: ';
+    prompt3 : 'enter three real numbers: ';
+
+  proc
+    cube      (x : real                  ) : real;
+    factorial (n : int                   ) : int;
+    sort      (a : real,b : real,c : real);
+
+procedure main;
+
+  dcl
+    x : real;
+    n : int;
+    a : real;
+    b : real;
+    c : real;
+
+begin { main }
+
+  write (prompt1);
+  readln (x);
+  writeln ('x^3 is ',cube(x));
+  writeln;
+
+  write (prompt2);
+  readln (n);
+  writeln ('n! is ',factorial(n));
+  writeln;
+
+  write (prompt3);
+  readln(a,b,c);
+  call sort(a,b,c);
+  writeln;
+
+  writeln ('all done!');
+
+end   { main }
+
+procedure cube;
+
+begin { cube }
+
+   return x*x*x;
+
+end   { cube }
+
+procedure factorial;
+
+begin { factorial }
+
+  if ((n = 0))
+    then return 1;
+    else return n*factorial(n-1);
+
+end   { factorial }
+
+procedure sort;
+
+  dcl
+    temp : int;
+
+begin { sort }
+
+  if (a > b)
+    then do;
+    writeln('one');
+         temp := a;
+         a := b;
+         b := temp;
+         end;
+  if (b > c)
+    then do;
+    writeln('two');
+         temp := b;
+         b := c;
+         c := temp;
+         if (a > b)
+           then do;
+           writeln('three');
+                temp := a;
+                a := b;
+                b := temp;
+                end;
+         end;
+  writeln (a,'  ',b,'  ',c);
+
+end   { sort }
+.
